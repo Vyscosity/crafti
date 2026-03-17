@@ -349,7 +349,7 @@ void WorldTask::logic()
 
         key_held_down = true;
     }
-    else if(keyPressed(KEY_NSPIRE_PERIOD)) //Toggle inventory overlay (or take screenshot with Ctrl + .)
+    else if(keyPressed(KEY_NSPIRE_PERIOD)) //Open list of blocks (or take screenshot with Ctrl + .)
     {
         if(keyPressed(KEY_NSPIRE_CTRL))
         {
@@ -376,8 +376,10 @@ void WorldTask::logic()
         }
         else
         {
-            // Keep world running while showing inventory overlay.
-            draw_inventory = !draw_inventory;
+            draw_inventory = false;
+            render();
+            draw_inventory = true;
+            block_list_task.makeCurrent();
         }
 
         key_held_down = true;
@@ -508,14 +510,9 @@ void WorldTask::render()
     //Don't draw the inventory when drawing the background for BlockListTask
     if(draw_inventory)
     {
-        // Draw the inventory overlay on top of the world.
         current_inventory.draw(*screen);
         drawStringCenter(global_block_renderer.getName(current_inventory.currentSlot()), 0xFFFF, *screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT - current_inventory.height() - fontHeight());
     }
-
-    // When inventory overlay is enabled, allow navigating/selecting blocks without switching tasks.
-    if(draw_inventory)
-        block_list_task.logic();
 
     if(message_timeout > 0)
     {
