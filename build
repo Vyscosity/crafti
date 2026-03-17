@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Build script for desktop (PC) target
+# Usage:
+#   ./build         # builds using Makefile.pc
+#   ./build clean   # cleans the build output
+
+set -e
+
+if [ "$1" = "clean" ]; then
+    make -f Makefile.pc clean
+    exit 0
+fi
+
+make -f Makefile.pc "$@"
