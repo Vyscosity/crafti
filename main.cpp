@@ -1,6 +1,12 @@
 #include <libndls.h>
 #include <unistd.h>
 
+#ifndef _TINSPIRE
+#define SDL_MAIN_HANDLED
+#include <SDL/SDL.h>
+#undef main
+#endif
+
 #include "gl.h"
 #include "terrain.h"
 #include "worldtask.h"
@@ -55,8 +61,43 @@ int main(int argc, char *argv[])
     //Start with WorldTask as current task
     world_task.makeCurrent();
 
+#ifndef _TINSPIRE
+    constexpr Uint32 tick_ms = 33; // Fixed simulation tick (~30 Hz)
+    constexpr Uint32 max_frame_ms = 250; // Clamp to avoid huge catch-up after pauses
+    Uint32 prev_ticks = SDL_GetTicks();
+    Uint32 accumulator = 0;
+#endif
+
     while(Task::running)
     {
+#ifndef _TINSPIRE
+        const Uint32 now = SDL_GetTicks();
+        Uint32 frame_time = now - prev_ticks;
+        prev_ticks = now;
+        if(frame_time > max_frame_ms)
+            frame_time = max_frame_ms;
+        accumulator += frame_time;
+
+        // Run simulation at a fixed rate independent of rendering frequency.
+        unsigned int steps = 0;
+        while(accumulator >= tick_ms && Task::running)
+        {
+            Task::current_task->logic();
+            accumulator -= tick_ms;
+
+            // Safety guard against spending forever catching up.
+            if(++steps >= 8)
+            {
+                accumulator = 0;
+                break;
+            }
+        }
+#endif
+
+#ifdef _TINSPIRE
+        Task::current_task->logic();
+#endif
+
         //Reset "loading" message
         drawLoadingtext(-1);
 
@@ -64,7 +105,10 @@ int main(int argc, char *argv[])
 
         nglDisplay();
 
-        Task::current_task->logic();
+#ifndef _TINSPIRE
+        // Yield a tiny slice to avoid pegging a core; still allows very high visual FPS.
+        SDL_Delay(1);
+#endif
     }
 
     Task::deinitializeGlobals();

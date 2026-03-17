@@ -1,6 +1,10 @@
 #include "task.h"
 #include <zlib.h>
 
+#ifndef _TINSPIRE
+#include <SDL/SDL.h>
+#endif
+
 #include "texturetools.h"
 #include "blocklisttask.h"
 #include "worldtask.h"
@@ -31,6 +35,75 @@ bool Task::keyPressed(const t_key &key)
         else
             return (*reinterpret_cast<volatile uint16_t*>(0x900E0000 + key.row) & key.col) == 0;
     #else
+        static bool quit_requested = false;
+
+        SDL_PumpEvents();
+        SDL_Event event;
+        while(SDL_PollEvent(&event))
+        {
+            if(event.type == SDL_QUIT)
+            {
+                quit_requested = true;
+                running = false;
+            }
+        }
+
+        if(quit_requested)
+            return key.row == KEY_NSPIRE_ESC.row && key.col == KEY_NSPIRE_ESC.col;
+
+        const Uint8 *keys = SDL_GetKeyState(nullptr);
+        const Uint8 mouse = SDL_GetMouseState(nullptr, nullptr);
+
+        const auto is_down = [keys](SDLKey sdl_key) {
+            return keys[sdl_key] != 0;
+        };
+
+        if(key.row == KEY_NSPIRE_ESC.row && key.col == KEY_NSPIRE_ESC.col)
+            return is_down(SDLK_ESCAPE);
+
+        if(key.row == KEY_NSPIRE_8.row && key.col == KEY_NSPIRE_8.col)
+            return is_down(SDLK_w) || is_down(SDLK_UP);
+        if(key.row == KEY_NSPIRE_2.row && key.col == KEY_NSPIRE_2.col)
+            return is_down(SDLK_s) || is_down(SDLK_DOWN);
+        if(key.row == KEY_NSPIRE_4.row && key.col == KEY_NSPIRE_4.col)
+            return is_down(SDLK_a) || is_down(SDLK_LEFT);
+        if(key.row == KEY_NSPIRE_6.row && key.col == KEY_NSPIRE_6.col)
+            return is_down(SDLK_d) || is_down(SDLK_RIGHT);
+
+        if(key.row == KEY_NSPIRE_5.row && key.col == KEY_NSPIRE_5.col)
+            return is_down(SDLK_SPACE) || is_down(SDLK_RETURN);
+
+        if(key.row == KEY_NSPIRE_7.row && key.col == KEY_NSPIRE_7.col)
+            return (mouse & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0 || is_down(SDLK_e);
+        if(key.row == KEY_NSPIRE_9.row && key.col == KEY_NSPIRE_9.col)
+            return (mouse & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0 || is_down(SDLK_q);
+
+        if(key.row == KEY_NSPIRE_1.row && key.col == KEY_NSPIRE_1.col)
+            return is_down(SDLK_1) || is_down(SDLK_LEFTBRACKET);
+        if(key.row == KEY_NSPIRE_3.row && key.col == KEY_NSPIRE_3.col)
+            return is_down(SDLK_3) || is_down(SDLK_RIGHTBRACKET);
+
+        if(key.row == KEY_NSPIRE_PERIOD.row && key.col == KEY_NSPIRE_PERIOD.col)
+            return is_down(SDLK_e) || is_down(SDLK_PERIOD);
+        if(key.row == KEY_NSPIRE_MENU.row && key.col == KEY_NSPIRE_MENU.col)
+            return is_down(SDLK_TAB);
+
+        if(key.row == KEY_NSPIRE_UP.row && key.col == KEY_NSPIRE_UP.col)
+            return is_down(SDLK_UP);
+        if(key.row == KEY_NSPIRE_DOWN.row && key.col == KEY_NSPIRE_DOWN.col)
+            return is_down(SDLK_DOWN);
+        if(key.row == KEY_NSPIRE_LEFT.row && key.col == KEY_NSPIRE_LEFT.col)
+            return is_down(SDLK_LEFT);
+        if(key.row == KEY_NSPIRE_RIGHT.row && key.col == KEY_NSPIRE_RIGHT.col)
+            return is_down(SDLK_RIGHT);
+
+        if(key.row == KEY_NSPIRE_PLUS.row && key.col == KEY_NSPIRE_PLUS.col)
+            return is_down(SDLK_EQUALS) || is_down(SDLK_PLUS);
+        if(key.row == KEY_NSPIRE_MINUS.row && key.col == KEY_NSPIRE_MINUS.col)
+            return is_down(SDLK_MINUS);
+        if(key.row == KEY_NSPIRE_CTRL.row && key.col == KEY_NSPIRE_CTRL.col)
+            return is_down(SDLK_LCTRL) || is_down(SDLK_RCTRL) || is_down(SDLK_LMETA) || is_down(SDLK_RMETA);
+
         return false;
     #endif
 }

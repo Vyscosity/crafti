@@ -2,8 +2,19 @@ GCC = gcc
 GPP = g++
 LD = g++
 OPTIMIZE ?= g
+BREW_PREFIX ?= $(shell brew --prefix 2>/dev/null)
+ifeq ($(BREW_PREFIX),)
+BREW_PREFIX := /opt/homebrew
+endif
+ifeq ($(shell uname),Darwin)
+GCSECTIONSFLAG = -Wl,-dead_strip
+else
+GCSECTIONSFLAG = -Wl,--gc-sections
+endif
 GCCFLAGS = -g -O$(OPTIMIZE) -I nGL -I . -Wall -W -ffast-math -fno-math-errno -fomit-frame-pointer -flto -fno-rtti -fgcse-sm -fgcse-las -funsafe-loop-optimizations -fno-fat-lto-objects -frename-registers -fprefetch-loop-arrays -Wold-style-cast -ffunction-sections -fdata-sections
-LDFLAGS = -lm -lz -lSDL -Wl,--gc-sections
+LDFLAGS = -lm -lz -lSDL $(GCSECTIONSFLAG)
+GCCFLAGS += -I$(BREW_PREFIX)/include -I$(BREW_PREFIX)/opt/zlib/include
+LDFLAGS += -L$(BREW_PREFIX)/lib -L$(BREW_PREFIX)/opt/zlib/lib
 EXE = crafti
 OBJS = $(patsubst %.c, %.o, $(shell find . -name \*.c))
 OBJS += $(patsubst %.cpp, %.o, $(shell find . -name \*.cpp))

@@ -1,5 +1,9 @@
 #include <sys/stat.h>
 
+#ifndef _TINSPIRE
+#include <SDL/SDL.h>
+#endif
+
 #include "worldtask.h"
 
 #include "aabb.h"
@@ -140,6 +144,16 @@ void WorldTask::logic()
         vy = 50;
         can_jump = false;
     }
+
+#ifndef _TINSPIRE
+    int rel_x = 0, rel_y = 0;
+    SDL_GetRelativeMouseState(&rel_x, &rel_y);
+    if(rel_x != 0 || rel_y != 0)
+    {
+        yr += GLFix(rel_x) / 3;
+        xr += GLFix(rel_y) / 3;
+    }
+#endif
 
     if(has_touchpad)
     {

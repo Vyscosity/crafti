@@ -537,7 +537,6 @@ void Chunk::generate()
                     if(noise_val < GLFix(0.2f))
                     {
                         noise_val = noise.noise(GLFix(x)/Chunk::SIZE + this->x, GLFix(z)/Chunk::SIZE + this->z, 1000.5f);
-
                         uint8_t test = (noise_val.value>>4) & 0xF;
 
                         if(test < 1)
