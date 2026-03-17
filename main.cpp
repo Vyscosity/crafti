@@ -25,7 +25,10 @@ int main(int argc, char *argv[])
     nglInit();
     if(lcd_type() == SCR_320x240_4)
         greyscaleTexture(loading);
-    nglSetBuffer(loading.bitmap);
+    // The loading bitmap is 320x240, but the desktop renderer uses 640x480
+    // (SCREEN_WIDTH/HEIGHT). Provide the correct buffer size so nglDisplay
+    // doesn't read past the loading bitmap.
+    nglSetBuffer(loading.bitmap, 320, 240);
     nglDisplay();
 
     //Early exit #1
