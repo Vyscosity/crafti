@@ -3,6 +3,7 @@
 #include <libndls.h>
 
 #include "textures/terrain.h"
+#include "textures/terrain2.h"
 #include "textures/inv_selection.h"
 
 const char *block_names[BLOCK_NORMAL_LAST + 1] =
@@ -136,7 +137,7 @@ void terrainInit(const char *texture_path)
 {
     terrain_current = loadTextureFromFile(texture_path);
     if(!terrain_current)
-        terrain_current = &terrain; //Use default, included texture
+        terrain_current = &terrain2; //Use default, included texture
     else
         puts("External texture loaded!");
 
@@ -319,7 +320,8 @@ void terrainUninit()
     if(terrain_resized != terrain_current)
         deleteTexture(terrain_resized);
 
-    if(terrain_current != &terrain)
+    // terrain_current may point to a static texture (terrain or terrain2); only delete when it was dynamically loaded
+    if(terrain_current != &terrain && terrain_current != &terrain2)
         deleteTexture(terrain_current);
 
     deleteTexture(terrain_quad);
