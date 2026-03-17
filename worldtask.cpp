@@ -349,7 +349,7 @@ void WorldTask::logic()
 
         key_held_down = true;
     }
-    else if(keyPressed(KEY_NSPIRE_PERIOD)) //Open list of blocks (or take screenshot with Ctrl + .)
+    else if(keyPressed(KEY_NSPIRE_PERIOD)) //Toggle inventory overlay (or take screenshot with Ctrl + .)
     {
         if(keyPressed(KEY_NSPIRE_CTRL))
         {
@@ -376,10 +376,8 @@ void WorldTask::logic()
         }
         else
         {
-            draw_inventory = false;
-            render();
-            draw_inventory = true;
-            block_list_task.makeCurrent();
+            // Keep world running while showing inventory overlay.
+            draw_inventory = !draw_inventory;
         }
 
         key_held_down = true;
