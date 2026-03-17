@@ -39,7 +39,13 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+#ifndef _TINSPIRE
+    // Desktop builds can load a PNG terrain atlas directly from the repo.
+    // If loading fails, terrainInit will fall back to the built-in terrain2 texture.
+    terrainInit("textures/terrain2.png");
+#else
     terrainInit("/documents/ndless/crafti.ppm.tns");
+#endif
     glBindTexture(terrain_current);
 
     glLoadIdentity();

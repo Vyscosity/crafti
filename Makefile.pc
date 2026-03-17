@@ -12,7 +12,7 @@ else
 GCSECTIONSFLAG = -Wl,--gc-sections
 endif
 GCCFLAGS = -g -O$(OPTIMIZE) -I nGL -I . -Wall -W -ffast-math -fno-math-errno -fomit-frame-pointer -flto -fno-rtti -fgcse-sm -fgcse-las -funsafe-loop-optimizations -fno-fat-lto-objects -frename-registers -fprefetch-loop-arrays -Wold-style-cast -ffunction-sections -fdata-sections
-LDFLAGS = -lm -lz -lSDL $(GCSECTIONSFLAG)
+LDFLAGS = -lm -lz -lpng -lSDL $(GCSECTIONSFLAG)
 GCCFLAGS += -I$(BREW_PREFIX)/include -I$(BREW_PREFIX)/opt/zlib/include
 LDFLAGS += -L$(BREW_PREFIX)/lib -L$(BREW_PREFIX)/opt/zlib/lib
 EXE = crafti
