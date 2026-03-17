@@ -508,9 +508,14 @@ void WorldTask::render()
     //Don't draw the inventory when drawing the background for BlockListTask
     if(draw_inventory)
     {
+        // Draw the inventory overlay on top of the world.
         current_inventory.draw(*screen);
         drawStringCenter(global_block_renderer.getName(current_inventory.currentSlot()), 0xFFFF, *screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT - current_inventory.height() - fontHeight());
     }
+
+    // When inventory overlay is enabled, allow navigating/selecting blocks without switching tasks.
+    if(draw_inventory)
+        block_list_task.logic();
 
     if(message_timeout > 0)
     {
