@@ -310,6 +310,9 @@
                             #else
                                 c = loc_texture.bitmap[u.floor() + v.floor()*loc_texture.width];
                             #endif
+#ifdef TRANSPARENCY
+                            if (c != 0x0000) {
+#endif
                             unsigned int light_shade = low->c & 0x00FF;
                             if (light_shade > 0 && light_shade != 128) {
                                 unsigned int r_shade = (c >> 11) & 0x1F;
@@ -341,6 +344,9 @@
                                 
                                 c = (r_f << 11) | (g_f << 5) | b_f;
                             }
+#ifdef TRANSPARENCY
+                            }
+#endif
                             #ifdef BETTER_PERSPECTIVE
                                 if(__builtin_expect(q > 0.0f, 1))
                                 {
@@ -522,6 +528,9 @@
                             #else
                                 c = loc_texture.bitmap[u.floor() + v.floor()*loc_texture.width];
                             #endif
+#ifdef TRANSPARENCY
+                            if (c != 0x0000) {
+#endif
                             unsigned int light_shade = low->c & 0x00FF;
                             if (light_shade > 0 && light_shade != 128) {
                                 unsigned int r_shade = (c >> 11) & 0x1F;
@@ -553,6 +562,9 @@
                                 
                                 c = (r_f << 11) | (g_f << 5) | b_f;
                             }
+#ifdef TRANSPARENCY
+                            }
+#endif
                             #ifdef BETTER_PERSPECTIVE
                                 if(__builtin_expect(q > 0.0f, 1))
                                 {
