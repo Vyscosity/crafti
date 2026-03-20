@@ -226,6 +226,12 @@ void FluidRenderer::tick(const BLOCK_WDATA block, int local_x, int local_y, int 
         c.addParticle(p);
     }
 
+    // Use block position hash to stagger spreading over multiple ticks
+    // This prevents all blocks from trying to spread simultaneously
+    // uint32_t position_hash = (local_x * 73856093) ^ (local_y * 19349663) ^ (local_z * 83492791);
+    // if((position_hash ^ (c.tick_counter / 2)) % 5 != 0)
+    //     return;
+
     //Either flow downwards or spread
     if(getBLOCK(block_bottom) == BLOCK_AIR || getBLOCK(block_bottom) == getBLOCK(block))
     {

@@ -85,6 +85,7 @@ public:
     static constexpr int SIZE = 8;
 
     const int x, y, z;
+    int tick_counter = 1; //1 to trigger a tick the next frame
 
 private:
     //Terrain generation
@@ -122,7 +123,6 @@ private:
     
     std::vector<Animation> animations;
     std::vector<Particle> particles;
-    int tick_counter = 1; //1 to trigger a tick the next frame
 };
 
 //Doesn't really belong here, but still more than everywhere else
