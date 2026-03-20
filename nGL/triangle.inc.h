@@ -320,6 +320,27 @@
                                 b_shade = (b_shade * light_shade) >> 7;
                                 c = (r_shade << 11) | (g_shade << 5) | b_shade;
                             }
+                            
+                            int my_z = z.toInteger<int>();
+                            // Start fog at z=500
+                            if (my_z > 500) {
+                                // Max fog depth let's say 2500, but fog_val maxes at 256 for 8-bit blend
+                                // With >> 3, fog reaches 256 when diff is 2048, meaning exact max render distance
+                                int fog_val = (my_z - 500) >> 3;
+                                if (fog_val > 256) fog_val = 256;
+                                if (fog_val < 0) fog_val = 0;
+                                int inv_fog = 256 - fog_val;
+                                
+                                int r_f = (c >> 11) & 0x1F;
+                                int g_f = (c >> 5) & 0x3F;
+                                int b_f = c & 0x1F;
+                                
+                                r_f = ((r_f * inv_fog) >> 8) + ((12 * fog_val) >> 8);
+                                g_f = ((g_f * inv_fog) >> 8) + ((38 * fog_val) >> 8);
+                                b_f = ((b_f * inv_fog) >> 8) + ((25 * fog_val) >> 8);
+                                
+                                c = (r_f << 11) | (g_f << 5) | b_f;
+                            }
                             #ifdef BETTER_PERSPECTIVE
                                 if(__builtin_expect(q > 0.0f, 1))
                                 {
@@ -510,6 +531,27 @@
                                 g_shade = (g_shade * light_shade) >> 7;
                                 b_shade = (b_shade * light_shade) >> 7;
                                 c = (r_shade << 11) | (g_shade << 5) | b_shade;
+                            }
+                            
+                            int my_z = z.toInteger<int>();
+                            // Start fog at z=500
+                            if (my_z > 500) {
+                                // Max fog depth let's say 2500, but fog_val maxes at 256 for 8-bit blend
+                                // With >> 3, fog reaches 256 when diff is 2048, meaning exact max render distance
+                                int fog_val = (my_z - 500) >> 3;
+                                if (fog_val > 256) fog_val = 256;
+                                if (fog_val < 0) fog_val = 0;
+                                int inv_fog = 256 - fog_val;
+                                
+                                int r_f = (c >> 11) & 0x1F;
+                                int g_f = (c >> 5) & 0x3F;
+                                int b_f = c & 0x1F;
+                                
+                                r_f = ((r_f * inv_fog) >> 8) + ((12 * fog_val) >> 8);
+                                g_f = ((g_f * inv_fog) >> 8) + ((38 * fog_val) >> 8);
+                                b_f = ((b_f * inv_fog) >> 8) + ((25 * fog_val) >> 8);
+                                
+                                c = (r_f << 11) | (g_f << 5) | b_f;
                             }
                             #ifdef BETTER_PERSPECTIVE
                                 if(__builtin_expect(q > 0.0f, 1))
