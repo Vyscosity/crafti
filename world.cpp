@@ -309,6 +309,12 @@ void World::processBuildQueue()
     // Process one chunk from the queue
     if(!build_queue.empty())
     {
+        build_queue.sort([this](Chunk *a, Chunk *b) {
+            int dist_a = (a->x - cen_x)*(a->x - cen_x) + (a->y - cen_y)*(a->y - cen_y) + (a->z - cen_z)*(a->z - cen_z);
+            int dist_b = (b->x - cen_x)*(b->x - cen_x) + (b->y - cen_y)*(b->y - cen_y) + (b->z - cen_z)*(b->z - cen_z);
+            return dist_a < dist_b;
+        });
+
         Chunk *c = build_queue.front();
         build_queue.pop_front();
         c->buildGeometryAsync();
