@@ -321,6 +321,9 @@
                                 r_shade = (r_shade * light_shade) >> 7;
                                 g_shade = (g_shade * light_shade) >> 7;
                                 b_shade = (b_shade * light_shade) >> 7;
+                                if (r_shade > 0x1F) r_shade = 0x1F;
+                                if (g_shade > 0x3F) g_shade = 0x3F;
+                                if (b_shade > 0x1F) b_shade = 0x1F;
                                 c = (r_shade << 11) | (g_shade << 5) | b_shade;
                             }
                             
@@ -537,6 +540,9 @@
                                 r_shade = (r_shade * light_shade) >> 7;
                                 g_shade = (g_shade * light_shade) >> 7;
                                 b_shade = (b_shade * light_shade) >> 7;
+                                if (r_shade > 0x1F) r_shade = 0x1F;
+                                if (g_shade > 0x3F) g_shade = 0x3F;
+                                if (b_shade > 0x1F) b_shade = 0x1F;
                                 c = (r_shade << 11) | (g_shade << 5) | b_shade;
                             }
                             

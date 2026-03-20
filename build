@@ -11,4 +11,9 @@ if [ "$1" = "clean" ]; then
     exit 0
 fi
 
+# Always clean before building when no explicit target is provided.
+if [ -z "$1" ]; then
+    make -f Makefile.pc clean
+fi
+
 make -f Makefile.pc "$@"

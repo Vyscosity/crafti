@@ -33,7 +33,11 @@ void TNTRenderer::explode(const int local_x, const int local_y, const int local_
                     explode(local_x + x, local_y + y, local_z + z, c);
                 else if(block != BLOCK_BEDROCK && block != BLOCK_AIR)
                 {
-                    c.spawnDestructionParticles(local_x + x, local_y + y, local_z + z);
+                    int global_x = local_x + x + c.x * Chunk::SIZE;
+                    int global_y = local_y + y + c.y * Chunk::SIZE;
+                    int global_z = local_z + z + c.z * Chunk::SIZE;
+
+                    world.spawnDestructionParticles(global_x, global_y, global_z);
                     c.changeGlobalBlockRelative(local_x + x, local_y + y, local_z + z, BLOCK_AIR);
                 }
             }

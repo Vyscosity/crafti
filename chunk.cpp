@@ -700,6 +700,9 @@ void Chunk::makeTree(unsigned int x, unsigned int y, unsigned int z)
 
 void Chunk::spawnDestructionParticles(const int x, const int y, const int z)
 {
+    if(!inBounds(x, y, z))
+        return;
+
     const auto block = getLocalBlock(x, y, z);
     Particle p;
     p.size = 14;

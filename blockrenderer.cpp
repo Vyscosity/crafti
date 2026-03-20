@@ -23,12 +23,12 @@ static COLOR computeLighting(BLOCK_SIDE side, COLOR base_color) {
     if ((base_color & 0x00FF) != 0) return base_color; 
     unsigned int shade = 128;
     switch(side) {
-        case BLOCK_TOP:    shade = 119; break;
-        case BLOCK_BOTTOM: shade = 64; break;
-        case BLOCK_RIGHT:  shade = 91; break;
-        case BLOCK_LEFT:   shade = 64; break;
-        case BLOCK_BACK:   shade = 80; break;
-        case BLOCK_FRONT:  shade = 64; break;
+        case BLOCK_TOP:    shade = 160; break; // Direct sunlight (overbright)
+        case BLOCK_RIGHT:  shade = 140; break; // Slightly overbright
+        case BLOCK_BACK:   shade = 128; break; // Neutral
+        case BLOCK_FRONT:  shade = 96; break; // Shadow
+        case BLOCK_LEFT:   shade = 96; break; // Shadow
+        case BLOCK_BOTTOM: shade = 80; break; // Deep shadow
     }
     return (base_color & 0xFF00) | shade;
 }
