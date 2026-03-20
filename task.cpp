@@ -74,9 +74,9 @@ bool Task::keyPressed(const t_key &key)
             return is_down(SDLK_SPACE) || is_down(SDLK_RETURN);
 
         if(key.row == KEY_NSPIRE_7.row && key.col == KEY_NSPIRE_7.col)
-            return (mouse & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
+            return (mouse & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
         if(key.row == KEY_NSPIRE_9.row && key.col == KEY_NSPIRE_9.col)
-            return (mouse & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0 || is_down(SDLK_q);
+            return (mouse & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0 || is_down(SDLK_q);
 
         if(key.row == KEY_NSPIRE_1.row && key.col == KEY_NSPIRE_1.col)
             return is_down(SDLK_1) || is_down(SDLK_LEFTBRACKET);

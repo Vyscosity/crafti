@@ -100,10 +100,6 @@ void Chunk::buildGeometry()
     build_vertices_unaligned.clear();
     animations.clear();
 
-    debug("Updating chunk %d:%d:%d...\n", x, y, z);
-
-    debug("\tUpdating geometry...\t");
-
     //Bottom of world doesn't need to be drawn
     int y_start = this->y == 0 ? 0 : -1;
 
@@ -536,7 +532,18 @@ void Chunk::generate()
     for(int x = 0; x < SIZE; x++)
         for(int z = 0; z < SIZE; z++)
         {
-            GLFix noise_val = noise.noise((GLFix(x)/Chunk::SIZE + this->x)/4, (GLFix(z)/Chunk::SIZE + this->z)/4, 10);
+            GLFix nx = (GLFix(x)/Chunk::SIZE + this->x)/4;
+            GLFix nz = (GLFix(z)/Chunk::SIZE + this->z)/4;
+
+            GLFix e1 = noise.noise(nx, nz, 10);
+            GLFix e2 = noise.noise(nx * 2, nz * 2, 20) * GLFix(0.5f);
+            GLFix e3 = noise.noise(nx * 4, nz * 4, 30) * GLFix(0.25f);
+            
+            GLFix noise_val = (e1 + e2 + e3) / GLFix(1.75f);
+            
+            // Exponentiate to make it more mountainous like Minecraft
+            noise_val = noise_val * noise_val * GLFix(1.5f);
+
             int world_gen_min = 8, world_gen_max = World::HEIGHT * Chunk::SIZE * 0.7;
             int height = world_gen_min + (noise_val * (world_gen_max - world_gen_min)).round();
             int height_left = height - this->y * Chunk::SIZE;
