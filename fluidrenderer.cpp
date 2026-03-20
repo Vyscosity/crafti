@@ -82,40 +82,40 @@ void FluidRenderer::renderSpecialBlock(const BLOCK_WDATA block, GLFix x, GLFix y
     // Render sides if adjacent to a non-opaque block which isn't the same fluid
     if(!global_block_renderer.isOpaque(block_front) && getBLOCK(block_front) != getBLOCK(block))
     {
-        c.addUnalignedVertex({x, y, z, tex.left, tex.bottom, Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x, y + corner_height[0][0], z, tex.left, corner_tex_top[0][0], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][0], z, tex.right, corner_tex_top[1][0], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x + BLOCK_SIZE, y, z, tex.right, tex.bottom, Chunk::INDEPENDENT_TRIS});
+        c.addUnalignedVertex({x, y, z, tex.left, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x, y + corner_height[0][0], z, tex.left, corner_tex_top[0][0], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][0], z, tex.right, corner_tex_top[1][0], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y, z, tex.right, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
     }
 
     if(!global_block_renderer.isOpaque(block_back) && getBLOCK(block_back) != getBLOCK(block))
     {
-        c.addUnalignedVertex({x + BLOCK_SIZE, y, z + BLOCK_SIZE, tex.left, tex.bottom, Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][1], z + BLOCK_SIZE, tex.left, corner_tex_top[1][1], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x, y + corner_height[0][1], z + BLOCK_SIZE, tex.right, corner_tex_top[0][1], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x, y, z + BLOCK_SIZE, tex.right, tex.bottom, Chunk::INDEPENDENT_TRIS});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y, z + BLOCK_SIZE, tex.left, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][1], z + BLOCK_SIZE, tex.left, corner_tex_top[1][1], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x, y + corner_height[0][1], z + BLOCK_SIZE, tex.right, corner_tex_top[0][1], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x, y, z + BLOCK_SIZE, tex.right, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
     }
 
     if(!global_block_renderer.isOpaque(block_left) && getBLOCK(block_left) != getBLOCK(block))
     {
-        c.addUnalignedVertex({x, y, z + BLOCK_SIZE, tex.left, tex.bottom, Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x, y + corner_height[0][1], z + BLOCK_SIZE, tex.left, corner_tex_top[0][1], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x, y + corner_height[0][0], z, tex.right, corner_tex_top[0][0], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x, y, z, tex.right, tex.bottom, Chunk::INDEPENDENT_TRIS});
+        c.addUnalignedVertex({x, y, z + BLOCK_SIZE, tex.left, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x, y + corner_height[0][1], z + BLOCK_SIZE, tex.left, corner_tex_top[0][1], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x, y + corner_height[0][0], z, tex.right, corner_tex_top[0][0], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x, y, z, tex.right, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
     }
 
     if(!global_block_renderer.isOpaque(block_right) && getBLOCK(block_right) != getBLOCK(block))
     {
-        c.addUnalignedVertex({x + BLOCK_SIZE, y, z, tex.left, tex.bottom, Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][0], z, tex.left, corner_tex_top[1][0], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][1], z + BLOCK_SIZE, tex.right, corner_tex_top[1][1], Chunk::INDEPENDENT_TRIS});
-        c.addUnalignedVertex({x + BLOCK_SIZE, y, z + BLOCK_SIZE, tex.right, tex.bottom, Chunk::INDEPENDENT_TRIS});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y, z, tex.left, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][0], z, tex.left, corner_tex_top[1][0], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][1], z + BLOCK_SIZE, tex.right, corner_tex_top[1][1], (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+        c.addUnalignedVertex({x + BLOCK_SIZE, y, z + BLOCK_SIZE, tex.right, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
     }
 
-    c.addUnalignedVertex({x, y + corner_height[0][0], z, tex.left, tex.bottom, Chunk::INDEPENDENT_TRIS});
-    c.addUnalignedVertex({x, y + corner_height[0][1], z + BLOCK_SIZE, tex.left, tex.top, Chunk::INDEPENDENT_TRIS});
-    c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][1], z + BLOCK_SIZE, tex.right, tex.top, Chunk::INDEPENDENT_TRIS});
-    c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][0], z, tex.right, tex.bottom, Chunk::INDEPENDENT_TRIS});
+    c.addUnalignedVertex({x, y + corner_height[0][0], z, tex.left, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+    c.addUnalignedVertex({x, y + corner_height[0][1], z + BLOCK_SIZE, tex.left, tex.top, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+    c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][1], z + BLOCK_SIZE, tex.right, tex.top, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
+    c.addUnalignedVertex({x + BLOCK_SIZE, y + corner_height[1][0], z, tex.right, tex.bottom, (COLOR)(Chunk::INDEPENDENT_TRIS | 0x0080)});
 }
 
 void FluidRenderer::geometryNormalBlock(const BLOCK_WDATA block, const int local_x, const int local_y, const int local_z, const BLOCK_SIDE side, Chunk &c)
@@ -156,7 +156,7 @@ void FluidRenderer::geometryNormalBlock(const BLOCK_WDATA block, const int local
         break;
     }
 
-    BlockRenderer::renderNormalBlockSide(local_x, local_y, local_z, side, terrain_atlas[tex_x][tex_y].current, c);
+    BlockRenderer::renderNormalBlockSide(local_x, local_y, local_z, side, terrain_atlas[tex_x][tex_y].current, c, (COLOR)0x0080);
 }
 
 void FluidRenderer::drawPreview(const BLOCK_WDATA /*block*/, TEXTURE &dest, const int x, const int y)

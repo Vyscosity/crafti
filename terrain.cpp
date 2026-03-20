@@ -173,7 +173,7 @@ void terrainInit(const char *texture_path)
     makeColor(red_tint, *terrain_current, 10 * field_width, 15 * field_height, field_width, field_height);
 
     // Water has opacity of 0.5 but it's not rendered with alpha here.
-    makeWaterOpaque(*terrain_current, 13 * field_width, 12 * field_height, field_width, field_height);
+    // makeWaterOpaque(*terrain_current, 13 * field_width, 12 * field_height, field_width, field_height);
 
     if(terrain_current->width == 384 && terrain_current->height == 384)
         terrain_resized = terrain_current;
