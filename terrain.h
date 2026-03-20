@@ -60,7 +60,7 @@ constexpr BLOCK BLOCK_REDSTONE_TORCH = 149; //Data: See BLOCK_TORCH
 constexpr BLOCK BLOCK_PRESSURE_PLATE = 150; //Data: How many ticks kept active
 constexpr BLOCK BLOCK_SPECIAL_LAST = BLOCK_PRESSURE_PLATE;
 
-constexpr uint8_t RANGE_WATER = 5;
+constexpr uint8_t RANGE_WATER = 7;
 constexpr uint8_t RANGE_LAVA = 3;
 
 constexpr BLOCK getBLOCK(BLOCK_WDATA bd) { return bd & 0xFF; }
