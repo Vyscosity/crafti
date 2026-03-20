@@ -3,12 +3,26 @@
 
 #include <vector>
 #include <list>
-#include <map>
+#include <unordered_map>
 #include <tuple>
+#include <functional>
 
 #include "terrain.h"
 #include "chunk.h"
 #include "perlinnoise.h"
+
+// Hash function for std::tuple<int,int,int>
+namespace std {
+    template<>
+    struct hash<std::tuple<int,int,int>> {
+        size_t operator()(const std::tuple<int,int,int>& t) const {
+            auto h1 = std::hash<int>{}(std::get<0>(t));
+            auto h2 = std::hash<int>{}(std::get<1>(t));
+            auto h3 = std::hash<int>{}(std::get<2>(t));
+            return h1 ^ (h2 << 1) ^ (h3 << 2);
+        }
+    };
+}
 
 struct BLOCK_CHANGE {
     int chunk_x, chunk_y, chunk_z, local_x, local_y, local_z;
@@ -41,18 +55,21 @@ public:
 
     static constexpr int HEIGHT = 5;
 
+    void processBuildQueue(); // Process one chunk from the build queue
+
 private:
     Chunk *generateChunk(int x, int y, int z);
     void setChunkVisible(int x, int y, int z);
 
     bool loaded = false;
     int cen_x = 0, cen_y = 0, cen_z = 0;
-    int field_of_view = 3;
+    int field_of_view = 8;
     PerlinNoise perlin_noise;
     unsigned int *seed;
 
-    std::map<std::tuple<int,int,int>,Chunk*> all_chunks;
+    std::unordered_map<std::tuple<int,int,int>,Chunk*> all_chunks;
     std::vector<Chunk*> visible_chunks;
+    std::list<Chunk*> build_queue; // Queue of chunks waiting for geometry build
 
     //If a block in a not yet loaded Chunk has been set, it's stored here until the Chunk has been loaded
     std::vector<BLOCK_CHANGE> pending_block_changes;

@@ -35,8 +35,8 @@ unsigned int Chunk::getPosition(unsigned int x, unsigned int y, unsigned int z)
 
     if(pos_indices[x][y][z] == -1)
     {
-        pos_indices[x][y][z] = positions.size();
-        positions.emplace_back(VECTOR3{x*BLOCK_SIZE, y*BLOCK_SIZE, z*BLOCK_SIZE});
+        pos_indices[x][y][z] = build_positions.size();
+        build_positions.emplace_back(VECTOR3{x*BLOCK_SIZE, y*BLOCK_SIZE, z*BLOCK_SIZE});
     }
 
     return pos_indices[x][y][z];
@@ -44,17 +44,17 @@ unsigned int Chunk::getPosition(unsigned int x, unsigned int y, unsigned int z)
 
 void Chunk::addAlignedVertex(const int x, const int y, const int z, GLFix u, GLFix v, const COLOR c)
 {
-    vertices.emplace_back(IndexedVertex{getPosition(x, y, z), u, v, c});
+    build_vertices.emplace_back(IndexedVertex{getPosition(x, y, z), u, v, c});
 }
 
 void Chunk::addUnalignedVertex(const GLFix x, const GLFix y, const GLFix z, const GLFix u, const GLFix v, const COLOR c)
 {
-    vertices_unaligned.emplace_back(VERTEX{x, y, z, u, v, c});
+    build_vertices_unaligned.emplace_back(VERTEX{x, y, z, u, v, c});
 }
 
 void Chunk::addUnalignedVertex(const VERTEX &v)
 {
-    vertices_unaligned.push_back(v);
+    build_vertices_unaligned.push_back(v);
 }
 
 void Chunk::addAnimation(const Chunk::Animation &animation)
@@ -69,12 +69,12 @@ void Chunk::addParticle(const Particle &particle)
 
 void Chunk::addAlignedVertexQuad(const int x, const int y, const int z, GLFix u, GLFix v, const COLOR c)
 {
-    vertices_quad.emplace_back(IndexedVertex{getPosition(x, y, z), u, v, c});
+    build_vertices_quad.emplace_back(IndexedVertex{getPosition(x, y, z), u, v, c});
 }
 
 void Chunk::addAlignedVertexForceColor(const int x, const int y, const int z, GLFix u, GLFix v, const COLOR c)
 {
-    vertices_color.emplace_back(IndexedVertex{getPosition(x, y, z), u, v, c});
+    build_vertices_color.emplace_back(IndexedVertex{getPosition(x, y, z), u, v, c});
 }
 
 void Chunk::setLocalBlockSideRendered(const int x, const int y, const int z, const BLOCK_SIDE_BITFIELD side)
@@ -93,11 +93,11 @@ void Chunk::buildGeometry()
 
     std::fill(pos_indices[0][0] + 0, pos_indices[SIZE][SIZE] + SIZE + 1, -1);
 
-    positions.clear();
-    vertices.clear();
-    vertices_quad.clear();
-    vertices_color.clear();
-    vertices_unaligned.clear();
+    build_positions.clear();
+    build_vertices.clear();
+    build_vertices_quad.clear();
+    build_vertices_color.clear();
+    build_vertices_unaligned.clear();
     animations.clear();
 
     debug("Updating chunk %d:%d:%d...\n", x, y, z);
@@ -170,11 +170,32 @@ void Chunk::buildGeometry()
 
     std::fill(sides_rendered[0][0] + 0, sides_rendered[SIZE - 1][SIZE - 1] + SIZE, 0);
 
-    positions_processed.resize(positions.size());
+    build_positions_processed.resize(build_positions.size());
 
-    render_dirty = false;
+    build_complete = true;
+    build_dirty = false;
 
     debug("Done!\n");
+}
+
+void Chunk::swapMeshes()
+{
+    if(!build_complete)
+        return;
+
+    positions.swap(build_positions);
+    positions_processed.swap(build_positions_processed);
+    vertices.swap(build_vertices);
+    vertices_quad.swap(build_vertices_quad);
+    vertices_color.swap(build_vertices_color);
+    vertices_unaligned.swap(build_vertices_unaligned);
+
+    build_complete = false;
+}
+
+void Chunk::buildGeometryAsync()
+{
+    buildGeometry();
 }
 
 static bool behindClip(const VECTOR3 &v1)
@@ -213,8 +234,9 @@ void Chunk::logic(bool ticks_enabled)
 
 void Chunk::render()
 {
-    if(__builtin_expect(render_dirty, 0))
-        buildGeometry();
+    // Swap if build is complete
+    if(__builtin_expect(build_complete, 0))
+        swapMeshes();
 
     //If there's nothing to render, skip it completely
     if(positions.size() == 0 && vertices_unaligned.size() == 0

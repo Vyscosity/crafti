@@ -20,8 +20,11 @@ public:
     Chunk(int x, int y, int z);
     void logic(bool ticks_enabled);
     void render();
-    void setDirty(bool dirty = true) { render_dirty = dirty; }
-    bool isDirty() { return render_dirty; }
+    void setDirty(bool dirty = true) { build_dirty = dirty; }
+    bool isDirty() { return build_dirty; }
+    bool isBuildDirty() const { return build_dirty; }
+    void buildGeometryAsync(); // Used by build queue
+    void swapMeshes(); // Swap build and render mesh buffers
     BLOCK_WDATA getLocalBlock(const int x, const int y, const int z) const;
     void setLocalBlock(const int x, const int y, const int z, const BLOCK_WDATA block, bool set_dirty = true);
     void changeLocalBlock(const int x, const int y, const int z, const BLOCK_WDATA block); //Calls removeBlock and addBlock
@@ -92,21 +95,31 @@ private:
 
     //Rendering
     void geometrySpecialBlock(BLOCK_WDATA block, unsigned int x, unsigned int y, unsigned int z, BLOCK_SIDE side);
-    void buildGeometry();
+    void buildGeometry(); // Builds into build_* buffers
 
     //Data
     const GLFix abs_x, abs_y, abs_z;
     AABB aabb;
     BLOCK_WDATA blocks[SIZE][SIZE][SIZE];
 
-    //Rendering
-    bool render_dirty = true;
+    //Rendering - double buffered (render_* is displayed, build_* is being built)
+    bool build_dirty = true;
+    bool build_complete = false;
     static int pos_indices[SIZE + 1][SIZE + 1][SIZE + 1];
     BLOCK_SIDE_BITFIELD sides_rendered[SIZE][SIZE][SIZE] = {}; //It could be that other chunks already rendered parts of our blocks
+    
+    // Render mesh (displayed each frame)
     std::vector<VECTOR3> positions;
     std::vector<ProcessedPosition> positions_processed;
     std::vector<IndexedVertex> vertices, vertices_quad, vertices_color;
     std::vector<VERTEX> vertices_unaligned; //The optimized drawing with indices doesn't work with unaligned positions
+    
+    // Build mesh (built asynchronously by build queue)
+    std::vector<VECTOR3> build_positions;
+    std::vector<ProcessedPosition> build_positions_processed;
+    std::vector<IndexedVertex> build_vertices, build_vertices_quad, build_vertices_color;
+    std::vector<VERTEX> build_vertices_unaligned;
+    
     std::vector<Animation> animations;
     std::vector<Particle> particles;
     int tick_counter = 1; //1 to trigger a tick the next frame

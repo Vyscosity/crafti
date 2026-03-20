@@ -269,11 +269,45 @@ bool World::saveToFile(gzFile file) const
     return true;
 }
 
+void World::processBuildQueue()
+{
+    // Add dirty chunks to the build queue (avoiding duplicates)
+    for(Chunk *c : visible_chunks)
+    {
+        if(c->isBuildDirty())
+        {
+            // Check if already in queue
+            bool already_queued = false;
+            for(Chunk *q : build_queue)
+            {
+                if(q == c)
+                {
+                    already_queued = true;
+                    break;
+                }
+            }
+
+            if(!already_queued)
+                build_queue.push_back(c);
+        }
+    }
+
+    // Process one chunk from the queue
+    if(!build_queue.empty())
+    {
+        Chunk *c = build_queue.front();
+        build_queue.pop_front();
+        c->buildGeometryAsync();
+    }
+}
+
 void World::render()
 {
     bool ticks_enabled = settings_task.getValue(SettingsTask::TICKS_ENABLED);
     for(Chunk *c : visible_chunks)
         c->logic(ticks_enabled);
+
+    processBuildQueue();
 
     for(Chunk *c : visible_chunks)
         c->render();
