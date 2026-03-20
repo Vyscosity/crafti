@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
 
 #ifndef _TINSPIRE
     // Desktop builds can load a PNG terrain atlas directly from the repo.
-    // If loading fails, terrainInit will fall back to the built-in terrain2 texture.
-    terrainInit("textures/terrain2.png");
+    // If loading fails, terrainInit will fall back to the embedded terrain3 texture (or built-in terrain2).
+    terrainInit("textures/terrain3.png");
 #else
     terrainInit("/documents/ndless/crafti.ppm.tns");
 #endif

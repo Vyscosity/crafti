@@ -4,6 +4,7 @@
 
 #include "textures/terrain.h"
 #include "textures/terrain2.h"
+#include "textures/terrain3.h"
 #include "textures/inv_selection.h"
 
 const char *block_names[BLOCK_NORMAL_LAST + 1] =
@@ -137,7 +138,11 @@ void terrainInit(const char *texture_path)
 {
     terrain_current = loadTextureFromFile(texture_path);
     if(!terrain_current)
-        terrain_current = &terrain2; //Use default, included texture
+    {
+        terrain_current = &tex_terrain3; // Use embedded terrain3 texture when file unavailable
+        if(!terrain_current)
+            terrain_current = &terrain2; //Fallback to built-in terrain2
+    }
     else
         puts("External texture loaded!");
 

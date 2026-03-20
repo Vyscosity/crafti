@@ -49,7 +49,15 @@ void WorldTask::getRight(GLFix *x, GLFix *z)
 
 GLFix WorldTask::speed()
 {
-    return 10 * settings_task.getValue(SettingsTask::SPEED) + 10;
+    GLFix base = 10 * settings_task.getValue(SettingsTask::SPEED) + 10;
+
+    if(keyPressed(KEY_NSPIRE_CTRL)) // Sprint
+        return base * 2;
+
+    if(keyPressed(KEY_NSPIRE_SHIFT)) // Sneak
+        return base / 2;
+
+    return base;
 }
 
 void WorldTask::logic()
