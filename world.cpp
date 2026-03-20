@@ -1,4 +1,5 @@
 #include <random>
+#include <algorithm>
 #include <libndls.h>
 
 #include "blockrenderer.h"
@@ -113,6 +114,8 @@ void World::setPosition(int x, int y, int z)
         if(distsq == 1)
             distsq = 3;
 
+        std::vector<std::tuple<int, int, int>> local_chunks;
+
         for(int x = -dist; x <= dist; ++x)
             for(int y = -dist; y <= dist; ++y)
                 for(int z = -dist; z <= dist; ++z)
@@ -123,8 +126,19 @@ void World::setPosition(int x, int y, int z)
                     if(x*x + y*y + z*z > distsq)
                         continue;
 
-                    setChunkVisible(chunk_x + x, chunk_y + y, chunk_z + z);
+                    local_chunks.push_back(std::make_tuple(x, y, z));
                 }
+
+        std::sort(local_chunks.begin(), local_chunks.end(), [](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) {
+            int dist_a = std::get<0>(a)*std::get<0>(a) + std::get<1>(a)*std::get<1>(a) + std::get<2>(a)*std::get<2>(a);
+            int dist_b = std::get<0>(b)*std::get<0>(b) + std::get<1>(b)*std::get<1>(b) + std::get<2>(b)*std::get<2>(b);
+            return dist_a < dist_b;
+        });
+
+        for(const auto& pos : local_chunks)
+        {
+            setChunkVisible(chunk_x + std::get<0>(pos), chunk_y + std::get<1>(pos), chunk_z + std::get<2>(pos));
+        }
 
         cen_x = chunk_x;
         cen_y = chunk_y;
