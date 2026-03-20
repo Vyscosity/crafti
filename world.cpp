@@ -12,6 +12,7 @@ World world;
 World::World() : perlin_noise(0)
 {
     generateSeed();
+    setFieldOfView(field_of_view);
 }
 
 World::~World()
@@ -387,3 +388,19 @@ Chunk* World::generateChunk(int x, int y, int z)
 
     return c;
 }
+
+
+void World::setFieldOfView(int fov) {
+    field_of_view = fov;
+    loaded = false;
+    
+    int max_dist = fov * Chunk::SIZE * BLOCK_SIZE;
+    int fog_max_dist = max_dist - (4 * BLOCK_SIZE);
+    if (fog_max_dist < BLOCK_SIZE) fog_max_dist = BLOCK_SIZE;
+    
+    ngl_fog_start = fog_max_dist / 2;
+    int range = fog_max_dist - ngl_fog_start;
+    if (range < 1) range = 1;
+    ngl_fog_multiplier = (256 << 12) / range;
+}
+

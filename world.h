@@ -49,7 +49,7 @@ public:
     bool saveToFile(gzFile file) const;
     void render();
     int fieldOfView() const { return field_of_view; }
-    void setFieldOfView(int fov) { field_of_view = fov; loaded = false; }
+    void setFieldOfView(int fov);
     Chunk *findChunk(int x, int y, int z) const;
     void spawnDestructionParticles(int x, int y, int z);
 

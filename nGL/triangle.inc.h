@@ -325,11 +325,9 @@
                             }
                             
                             int my_z = z.toInteger<int>();
-                            // Start fog at z=500
-                            if (my_z > 500) {
-                                // Max fog depth let's say 2500, but fog_val maxes at 256 for 8-bit blend
-                                // With >> 3, fog reaches 256 when diff is 2048, meaning exact max render distance
-                                int fog_val = (my_z - 500) >> 3;
+                            // Start fog at ngl_fog_start
+                            if (my_z > ngl_fog_start) {
+                                int fog_val = ((my_z - ngl_fog_start) * ngl_fog_multiplier) >> 12;
                                 if (fog_val > 256) fog_val = 256;
                                 if (fog_val < 0) fog_val = 0;
                                 int inv_fog = 256 - fog_val;
@@ -338,9 +336,9 @@
                                 int g_f = (c >> 5) & 0x3F;
                                 int b_f = c & 0x1F;
                                 
-                                r_f = ((r_f * inv_fog) >> 8) + ((12 * fog_val) >> 8);
-                                g_f = ((g_f * inv_fog) >> 8) + ((38 * fog_val) >> 8);
-                                b_f = ((b_f * inv_fog) >> 8) + ((25 * fog_val) >> 8);
+                                r_f = ((r_f * inv_fog) >> 8) + ((24 * fog_val) >> 8);
+                                g_f = ((g_f * inv_fog) >> 8) + ((54 * fog_val) >> 8);
+                                b_f = ((b_f * inv_fog) >> 8) + ((31 * fog_val) >> 8);
                                 
                                 c = (r_f << 11) | (g_f << 5) | b_f;
                             }
@@ -543,11 +541,9 @@
                             }
                             
                             int my_z = z.toInteger<int>();
-                            // Start fog at z=500
-                            if (my_z > 500) {
-                                // Max fog depth let's say 2500, but fog_val maxes at 256 for 8-bit blend
-                                // With >> 3, fog reaches 256 when diff is 2048, meaning exact max render distance
-                                int fog_val = (my_z - 500) >> 3;
+                            // Start fog at ngl_fog_start
+                            if (my_z > ngl_fog_start) {
+                                int fog_val = ((my_z - ngl_fog_start) * ngl_fog_multiplier) >> 12;
                                 if (fog_val > 256) fog_val = 256;
                                 if (fog_val < 0) fog_val = 0;
                                 int inv_fog = 256 - fog_val;
@@ -556,9 +552,9 @@
                                 int g_f = (c >> 5) & 0x3F;
                                 int b_f = c & 0x1F;
                                 
-                                r_f = ((r_f * inv_fog) >> 8) + ((12 * fog_val) >> 8);
-                                g_f = ((g_f * inv_fog) >> 8) + ((38 * fog_val) >> 8);
-                                b_f = ((b_f * inv_fog) >> 8) + ((25 * fog_val) >> 8);
+                                r_f = ((r_f * inv_fog) >> 8) + ((24 * fog_val) >> 8);
+                                g_f = ((g_f * inv_fog) >> 8) + ((54 * fog_val) >> 8);
+                                b_f = ((b_f * inv_fog) >> 8) + ((31 * fog_val) >> 8);
                                 
                                 c = (r_f << 11) | (g_f << 5) | b_f;
                             }

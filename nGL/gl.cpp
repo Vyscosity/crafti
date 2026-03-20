@@ -12,6 +12,10 @@ static SDL_Surface *scr;
 #endif
 
 #include "gl.h"
+
+int ngl_fog_start = 500;
+int ngl_fog_multiplier = 10837;
+
 #include "fastmath.h"
 
 #define M(m, y, x) (m.data[y][x])

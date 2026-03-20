@@ -8,6 +8,10 @@
 //nGL version 0.8
 #include "fix.h"
 
+extern int ngl_fog_start;
+extern int ngl_fog_multiplier;
+
+
 #include "glconfig.h"
 
 //These values are used to calculate offsets into the buffer.

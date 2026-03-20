@@ -410,7 +410,7 @@ void WorldTask::render()
     aabb = {x - player_width/2, y, z - player_width/2, x + player_width/2, y + player_height, z + player_width/2};
     //printf("X: %f Y: %f Z: %f XR: %d YR: %d\n", x.toFloat(), y.toFloat(), z.toFloat(), xr.toInt(), yr.toInt());
 
-    glColor3f(0.4f, 0.6f, 0.8f); //Blue background
+    glColor3f(0.75f, 0.85f, 1.0f); //c0d8ff background
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glPushMatrix();
