@@ -32,7 +32,7 @@ constexpr int storage_src_y = 84;
 constexpr int storage_cols = 9;
 constexpr int storage_rows = 3;
 constexpr int inventory_center_offset_x = 0;
-constexpr int inventory_center_offset_y = 0;
+constexpr int inventory_center_offset_y = 40;
 
 // The usable slot layout is not centered inside inventory2.png, so center using this region.
 constexpr int inventory_layout_left = storage_src_x;
