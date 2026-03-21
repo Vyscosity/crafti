@@ -459,22 +459,38 @@ void WorldTask::render()
 
     world.render();
 
-    //Draw indication
-    glBindTexture(&blockselection);
-
-    //Do a quick animation
-    const unsigned int blockselection_frame_width = blockselection.width / blockselection_frames;
-    TextureAtlasEntry tex = textureArea(0, 0, blockselection_frame_width, blockselection.height);
-    tex.left += blockselection_frame_width * blockselection_frame;
-    tex.right += blockselection_frame_width * blockselection_frame;
-
-    //Only increment the frame nr each 5 frames
-    if(++blockselection_frame_fraction == 5)
+    // Draw selection / breaking indication.
+    TextureAtlasEntry tex;
+    const bool show_breaking_overlay = mining_progress > 0 && mining_duration > 0 &&
+                                       selection_pos.x == mining_pos.x && selection_pos.y == mining_pos.y && selection_pos.z == mining_pos.z;
+    if(show_breaking_overlay)
     {
-        blockselection_frame_fraction = 0;
+        glBindTexture(terrain_current);
+        static constexpr unsigned int breaking_frames = 10; // (0,15) to (9,15)
+        unsigned int breaking_frame = (static_cast<unsigned int>(mining_progress) * breaking_frames) / static_cast<unsigned int>(mining_duration);
+        if(breaking_frame >= breaking_frames)
+            breaking_frame = breaking_frames - 1;
 
-        if(++blockselection_frame == blockselection_frames)
-            blockselection_frame = 0;
+        tex = terrain_atlas[breaking_frame][15].current;
+    }
+    else
+    {
+        glBindTexture(&blockselection);
+
+        //Do a quick animation
+        const unsigned int blockselection_frame_width = blockselection.width / blockselection_frames;
+        tex = textureArea(0, 0, blockselection_frame_width, blockselection.height);
+        tex.left += blockselection_frame_width * blockselection_frame;
+        tex.right += blockselection_frame_width * blockselection_frame;
+
+        //Only increment the frame nr each 5 frames
+        if(++blockselection_frame_fraction == 5)
+        {
+            blockselection_frame_fraction = 0;
+
+            if(++blockselection_frame == blockselection_frames)
+                blockselection_frame = 0;
+        }
     }
 
     const GLFix indicator_x = selection_pos.x * BLOCK_SIZE, indicator_y = selection_pos.y * BLOCK_SIZE, indicator_z = selection_pos.z * BLOCK_SIZE;
@@ -483,16 +499,50 @@ void WorldTask::render()
     glPushMatrix();
     glTranslatef(indicator_x, indicator_y, indicator_z);
 
-    if (mining_progress > 0 && mining_duration > 0 && 
-        selection_pos.x == mining_pos.x && selection_pos.y == mining_pos.y && selection_pos.z == mining_pos.z) {
-        GLFix progress(1.0f - static_cast<float>(mining_progress) / mining_duration);
-        glTranslatef(BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2);
-        glScale3f(progress, progress, progress);
-        glTranslatef(-BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2);
-    }
-
     glBegin(GL_QUADS);
-    switch(selection_side)
+    if(show_breaking_overlay)
+    {
+        const GLFix block_size_fix = GLFix(BLOCK_SIZE);
+        const GLFix minus_offset = GLFix(0) - selection_offset;
+        const GLFix plus_offset = block_size_fix + selection_offset;
+
+        // Front
+        nglAddVertex({0, 0, minus_offset, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
+        nglAddVertex({0, block_size_fix, minus_offset, tex.left, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({block_size_fix, block_size_fix, minus_offset, tex.right, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({block_size_fix, 0, minus_offset, tex.right, tex.bottom, TEXTURE_TRANSPARENT});
+
+        // Back
+        nglAddVertex({block_size_fix, 0, plus_offset, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
+        nglAddVertex({block_size_fix, block_size_fix, plus_offset, tex.left, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({0, block_size_fix, plus_offset, tex.right, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({0, 0, plus_offset, tex.right, tex.bottom, TEXTURE_TRANSPARENT});
+
+        // Right
+        nglAddVertex({plus_offset, 0, 0, tex.right, tex.bottom, TEXTURE_TRANSPARENT});
+        nglAddVertex({plus_offset, block_size_fix, 0, tex.right, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({plus_offset, block_size_fix, block_size_fix, tex.left, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({plus_offset, 0, block_size_fix, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
+
+        // Left
+        nglAddVertex({minus_offset, 0, block_size_fix, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
+        nglAddVertex({minus_offset, block_size_fix, block_size_fix, tex.left, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({minus_offset, block_size_fix, 0, tex.right, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({minus_offset, 0, 0, tex.right, tex.bottom, TEXTURE_TRANSPARENT});
+
+        // Top
+        nglAddVertex({0, plus_offset, 0, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
+        nglAddVertex({0, plus_offset, block_size_fix, tex.left, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({block_size_fix, plus_offset, block_size_fix, tex.right, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({block_size_fix, plus_offset, 0, tex.right, tex.bottom, TEXTURE_TRANSPARENT});
+
+        // Bottom
+        nglAddVertex({block_size_fix, minus_offset, 0, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
+        nglAddVertex({block_size_fix, minus_offset, block_size_fix, tex.left, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({0, minus_offset, block_size_fix, tex.right, tex.top, TEXTURE_TRANSPARENT});
+        nglAddVertex({0, minus_offset, 0, tex.right, tex.bottom, TEXTURE_TRANSPARENT});
+    }
+    else switch(selection_side)
     {
     case AABB::FRONT:
         nglAddVertex({0, 0, selection_pos_abs.z - indicator_z - selection_offset, tex.left, tex.bottom, TEXTURE_TRANSPARENT});
