@@ -4,6 +4,7 @@
 #include <SDL/SDL.h>
 #endif
 
+#include <algorithm>
 #include <cstdio>
 
 #include "blockrenderer.h"
@@ -17,13 +18,37 @@ InventoryTask inventory_task;
 
 namespace {
 constexpr int inv_src_slot_size = 16;
-constexpr int inv_src_pitch = 17;
+constexpr int inv_src_slot_gap = 2;
+constexpr int inv_src_pitch = inv_src_slot_size + inv_src_slot_gap;
+constexpr int inv_draw_scale = 2;
+constexpr int inv_draw_slot_size = inv_src_slot_size * inv_draw_scale;
+constexpr int inv_draw_slot_gap = inv_src_slot_gap * inv_draw_scale;
+constexpr int inv_draw_pitch = inv_draw_slot_size + inv_draw_slot_gap;
+constexpr int inv_draw_slot_inset = 1 * inv_draw_scale;
 constexpr int hotbar_src_x = 8;
 constexpr int hotbar_src_y = 142;
 constexpr int storage_src_x = 8;
 constexpr int storage_src_y = 84;
 constexpr int storage_cols = 9;
 constexpr int storage_rows = 3;
+constexpr int inventory_center_offset_x = 0;
+constexpr int inventory_center_offset_y = 0;
+
+// The usable slot layout is not centered inside inventory2.png, so center using this region.
+constexpr int inventory_layout_left = storage_src_x;
+constexpr int inventory_layout_right = hotbar_src_x + (Inventory::hotbar_slot_count - 1) * inv_src_pitch + inv_src_slot_size;
+constexpr int inventory_layout_top = storage_src_y;
+constexpr int inventory_layout_bottom = hotbar_src_y + inv_src_slot_size;
+
+int inventoryOriginX()
+{
+    return (SCREEN_WIDTH - (inventory_layout_left + inventory_layout_right) * inv_draw_scale) / 2 + inventory_center_offset_x;
+}
+
+int inventoryOriginY()
+{
+    return (SCREEN_HEIGHT - (inventory_layout_top + inventory_layout_bottom) * inv_draw_scale) / 2 + inventory_center_offset_y;
+}
 }
 
 void InventoryTask::makeCurrent()
@@ -36,26 +61,28 @@ void InventoryTask::makeCurrent()
 
 int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
 {
-    const int inv_x = (SCREEN_WIDTH - inventory2.width) / 2;
-    const int inv_y = (SCREEN_HEIGHT - inventory2.height) / 2;
+    const int inv_x = inventoryOriginX();
+    const int inv_y = inventoryOriginY();
 
     const int local_x = mouse_x - inv_x;
     const int local_y = mouse_y - inv_y;
+    const int slot_size = inv_draw_slot_size;
+    const int pitch = inv_draw_pitch;
 
     for(int i = 0; i < Inventory::hotbar_slot_count; ++i)
     {
-        const int sx = hotbar_src_x + i * inv_src_pitch;
-        const int sy = hotbar_src_y;
-        if(local_x >= sx && local_x < sx + inv_src_slot_size && local_y >= sy && local_y < sy + inv_src_slot_size)
+        const int sx = hotbar_src_x * inv_draw_scale + i * pitch;
+        const int sy = hotbar_src_y * inv_draw_scale;
+        if(local_x >= sx && local_x < sx + slot_size && local_y >= sy && local_y < sy + slot_size)
             return i;
     }
 
     for(int row = 0; row < storage_rows; ++row)
         for(int col = 0; col < storage_cols; ++col)
         {
-            const int sx = storage_src_x + col * inv_src_pitch;
-            const int sy = storage_src_y + row * inv_src_pitch;
-            if(local_x >= sx && local_x < sx + inv_src_slot_size && local_y >= sy && local_y < sy + inv_src_slot_size)
+            const int sx = storage_src_x * inv_draw_scale + col * pitch;
+            const int sy = storage_src_y * inv_draw_scale + row * pitch;
+            if(local_x >= sx && local_x < sx + slot_size && local_y >= sy && local_y < sy + slot_size)
                 return Inventory::hotbar_slot_count + row * storage_cols + col;
         }
 
@@ -69,11 +96,27 @@ void InventoryTask::drawSlotItem(TEXTURE &tex, int slot, int x, int y)
     if(getBLOCK(block) == BLOCK_AIR || count == 0)
         return;
 
-    global_block_renderer.drawPreview(block, tex, x - 4, y - (getBLOCK(block) == BLOCK_DOOR ? 10 : 6));
+    if(getBLOCK(block) == BLOCK_DOOR)
+    {
+        const int door_w = 16;
+        const int door_h = 32;
+        // DoorRenderer applies an internal +4 x-offset.
+        const int preview_x = x + (inv_draw_slot_size - door_w) / 2 - 4;
+        const int preview_y = y + (inv_draw_slot_size - door_h) / 2;
+        global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+    }
+    else
+    {
+        const int icon_w = 24;
+        const int icon_h = 24;
+        const int preview_x = x + (inv_draw_slot_size - icon_w) / 2;
+        const int preview_y = y + (inv_draw_slot_size - icon_h) / 2;
+        global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+    }
 
     char count_text[12];
     snprintf(count_text, sizeof(count_text), "%u", count);
-    drawString(count_text, 0xFFFF, tex, x + 8, y + 2);
+    drawString(count_text, 0xFFFF, tex, x + inv_draw_slot_inset + 20, y + inv_draw_slot_inset + 2);
 }
 
 bool InventoryTask::isHoldingItem() const
@@ -154,35 +197,44 @@ void InventoryTask::render()
 {
     drawBackground();
 
-    const int inv_x = (SCREEN_WIDTH - inventory2.width) / 2;
-    const int inv_y = (SCREEN_HEIGHT - inventory2.height) / 2;
-    int src_x = 0;
-    int src_y = 0;
-    int dst_x = inv_x;
-    int dst_y = inv_y;
-    int draw_w = static_cast<int>(inventory2.width);
-    int draw_h = static_cast<int>(inventory2.height);
+    const int inv_w = static_cast<int>(inventory2.width) * inv_draw_scale;
+    const int inv_h = static_cast<int>(inventory2.height) * inv_draw_scale;
+    const int inv_x = inventoryOriginX();
+    const int inv_y = inventoryOriginY();
 
-    if(dst_x < 0)
+    const int clip_x0 = std::max(0, inv_x);
+    const int clip_y0 = std::max(0, inv_y);
+    const int clip_x1 = std::min(SCREEN_WIDTH, inv_x + inv_w);
+    const int clip_y1 = std::min(SCREEN_HEIGHT, inv_y + inv_h);
+
+    if(clip_x1 > clip_x0 && clip_y1 > clip_y0)
     {
-        src_x = -dst_x;
-        draw_w += dst_x;
-        dst_x = 0;
-    }
-    if(dst_y < 0)
-    {
-        src_y = -dst_y;
-        draw_h += dst_y;
-        dst_y = 0;
+        const int rel_left = clip_x0 - inv_x;
+        const int rel_top = clip_y0 - inv_y;
+        const int rel_right = clip_x1 - inv_x;
+        const int rel_bottom = clip_y1 - inv_y;
+
+        const int src_x = rel_left / inv_draw_scale;
+        const int src_y = rel_top / inv_draw_scale;
+        const int src_right = (rel_right + inv_draw_scale - 1) / inv_draw_scale;
+        const int src_bottom = (rel_bottom + inv_draw_scale - 1) / inv_draw_scale;
+        const int src_w = src_right - src_x;
+        const int src_h = src_bottom - src_y;
+
+        if(src_w > 0 && src_h > 0)
+            drawTexture(inventory2, *screen,
+                        src_x, src_y, src_w, src_h,
+                        inv_x + src_x * inv_draw_scale,
+                        inv_y + src_y * inv_draw_scale,
+                        src_w * inv_draw_scale,
+                        src_h * inv_draw_scale);
     }
 
-    if(draw_w > 0 && draw_h > 0)
-        drawTextureOverlay(inventory2, src_x, src_y, *screen, dst_x, dst_y, draw_w, draw_h);
-
+    const int pitch = inv_draw_pitch;
     for(int i = 0; i < Inventory::hotbar_slot_count; ++i)
     {
-        const int x = inv_x + hotbar_src_x + i * inv_src_pitch;
-        const int y = inv_y + hotbar_src_y;
+        const int x = inv_x + hotbar_src_x * inv_draw_scale + i * pitch;
+        const int y = inv_y + hotbar_src_y * inv_draw_scale;
         drawSlotItem(*screen, i, x, y);
     }
 
@@ -190,8 +242,8 @@ void InventoryTask::render()
         for(int col = 0; col < storage_cols; ++col)
         {
             const int slot = Inventory::hotbar_slot_count + row * storage_cols + col;
-            const int x = inv_x + storage_src_x + col * inv_src_pitch;
-            const int y = inv_y + storage_src_y + row * inv_src_pitch;
+            const int x = inv_x + storage_src_x * inv_draw_scale + col * pitch;
+            const int y = inv_y + storage_src_y * inv_draw_scale + row * pitch;
             drawSlotItem(*screen, slot, x, y);
         }
 

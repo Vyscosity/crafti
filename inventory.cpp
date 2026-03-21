@@ -12,16 +12,15 @@
 
 Inventory current_inventory;
 
-static constexpr int hotbar_src_x = 8;
-static constexpr int hotbar_src_y = 142;
-static constexpr int hotbar_src_width = 160;
-static constexpr int hotbar_src_height = 16;
-static constexpr int hotbar_scale = 2;
-static constexpr int hotbar_draw_width = hotbar_src_width * hotbar_scale;
-static constexpr int hotbar_draw_height = hotbar_src_height * hotbar_scale;
-static constexpr int hotbar_slot_pitch = 17 * hotbar_scale;
-static constexpr int hotbar_slot_size = 16 * hotbar_scale;
-static constexpr int hotbar_slot_inset = 1 * hotbar_scale;
+static constexpr int hotbar_src_x = 0;
+static constexpr int hotbar_src_y = 0;
+static constexpr int hotbar_src_width = 22 * Inventory::hotbar_slot_count;
+static constexpr int hotbar_src_height = 22;
+
+static int hotbarScale()
+{
+    return SCREEN_WIDTH >= hotbar_src_width * 2 ? 2 : 1;
+}
 
 Inventory::Inventory()
 {
@@ -29,10 +28,16 @@ Inventory::Inventory()
 
 void Inventory::draw(TEXTURE &tex)
 {
+    const int hotbar_scale = hotbarScale();
+    const int hotbar_draw_width = hotbar_src_width * hotbar_scale;
+    const int hotbar_draw_height = hotbar_src_height * hotbar_scale;
+    const int hotbar_slot_pitch = 22 * hotbar_scale;
+    const int hotbar_slot_inset = 3 * hotbar_scale;
+
     const int inventory_x = (SCREEN_WIDTH - hotbar_draw_width) / 2;
     const int inventory_y = SCREEN_HEIGHT - hotbar_draw_height - 3;
 
-    drawTexture(inventory2, tex, hotbar_src_x, hotbar_src_y, hotbar_src_width, hotbar_src_height, inventory_x, inventory_y, hotbar_draw_width, hotbar_draw_height);
+    drawTexture(inventory, tex, hotbar_src_x, hotbar_src_y, hotbar_src_width, hotbar_src_height, inventory_x, inventory_y, hotbar_draw_width, hotbar_draw_height);
     for(unsigned int i = 0; i < hotbar_slot_count; ++i)
     {
         const BLOCK_WDATA block = entries[i];
@@ -40,9 +45,26 @@ void Inventory::draw(TEXTURE &tex)
             continue;
 
         const int slot_x = inventory_x + static_cast<int>(i) * hotbar_slot_pitch;
-        const int preview_x = slot_x + hotbar_slot_inset + 8;
-        const int preview_y = inventory_y + hotbar_slot_inset + (getBLOCK(block) == BLOCK_DOOR ? -6 : -2);
-        global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+        const int slot_y = inventory_y;
+        const int slot_px = hotbar_slot_pitch;
+
+        if(getBLOCK(block) == BLOCK_DOOR)
+        {
+            const int door_w = 16;
+            const int door_h = 32;
+            // DoorRenderer applies an internal +4 x-offset.
+            const int preview_x = slot_x + (slot_px - door_w) / 2 - 4;
+            const int preview_y = slot_y + (slot_px - door_h) / 2;
+            global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+        }
+        else
+        {
+            const int icon_w = 24;
+            const int icon_h = 24;
+            const int preview_x = slot_x + (slot_px - icon_w) / 2;
+            const int preview_y = slot_y + (slot_px - icon_h) / 2;
+            global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+        }
 
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", counts[i]);
@@ -54,14 +76,14 @@ void Inventory::draw(TEXTURE &tex)
     const int selector_size = 24;
     drawTexture(inventory, tex,
                 selector_src_x, selector_src_y, selector_size, selector_size,
-                inventory_x + current_slot * hotbar_slot_pitch - 8,
-                inventory_y - 8,
+                inventory_x + current_slot * hotbar_slot_pitch - hotbar_scale,
+                inventory_y - hotbar_scale,
                 selector_size * hotbar_scale, selector_size * hotbar_scale);
 }
 
 unsigned int Inventory::height()
 {
-    return hotbar_draw_height;
+    return hotbar_src_height * hotbarScale();
 }
 
 BLOCK_WDATA Inventory::currentSlot() const
