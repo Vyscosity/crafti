@@ -1,4 +1,4 @@
-OBJS := font_bmp.h font_dat.h inventory.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h
+OBJS := font_bmp.h font_dat.h inventory.h inventory2.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h
 
 all: $(OBJS)
 
@@ -8,8 +8,8 @@ all: $(OBJS)
 %.h: %.png
 	ConvertImg --format=ngl $^ $@
 
-inventory.png: gui.png
-	convert -scale 512x512 -crop 200x42+0+1 $^ $@
+inventory.png: gui2.png
+	cp $^ $@
 
 inv_selection.png: gui.png
 	convert -scale 512x512 -crop 46x46+1+44 $^ $@

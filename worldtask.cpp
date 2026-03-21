@@ -14,12 +14,21 @@
 #include "fastmath.h"
 #include "font.h"
 #include "inventory.h"
+#include "inventorytask.h"
 
 #include "textures/blockselection.h"
 
 WorldTask world_task;
 
 constexpr GLFix  WorldTask::player_width,  WorldTask::player_height,  WorldTask::eye_pos;
+
+static BLOCK_WDATA inventoryDropItem(const BLOCK_WDATA block)
+{
+    if(global_block_renderer.isOriented(block))
+        return getBLOCK(block);
+
+    return getBLOCKWDATA(getBLOCK(block), getBLOCKDATA(block));
+}
 
 void WorldTask::makeCurrent()
 {
@@ -256,7 +265,14 @@ void WorldTask::logic()
     if(!keyPressed(KEY_NSPIRE_9)) mining_progress = 0;
 
     if(key_held_down)
-        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU);
+    {
+        bool desktop_t_held = false;
+#ifndef _TINSPIRE
+        const Uint8 *keys = SDL_GetKeyState(nullptr);
+        desktop_t_held = keys[SDLK_t] != 0;
+#endif
+        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU) || desktop_t_held;
+    }
 
     else if(keyPressed(KEY_NSPIRE_ESC)) //Save & Exit
     {
@@ -280,12 +296,16 @@ void WorldTask::logic()
         BLOCK_WDATA current_block = world.getBlock(selection_pos.x, selection_pos.y, selection_pos.z),
                     block_to_place = current_inventory.currentSlot();
 
+        if(getBLOCK(block_to_place) == BLOCK_AIR)
+            return;
+
         // When placing fluid onto a non-full fluid block of the same type, "fill" it
         if(current_block != block_to_place
            && ((getBLOCK(current_block) == BLOCK_WATER && getBLOCK(block_to_place) == BLOCK_WATER)
                || (getBLOCK(current_block) == BLOCK_LAVA && getBLOCK(block_to_place) == BLOCK_LAVA)))
         {
             world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, block_to_place);
+            current_inventory.removeFromCurrentSlot();
             return;
         }
 
@@ -320,8 +340,12 @@ void WorldTask::logic()
         //Only set the block if there's air
         if(current_block == BLOCK_AIR || (in_water && getBLOCK(current_block) == BLOCK_WATER))
         {
+            bool placed = false;
             if(!global_block_renderer.isOriented(block_to_place))
+            {
                 world.changeBlock(pos.x, pos.y, pos.z, block_to_place);
+                placed = true;
+            }
             else
             {
                 AABB::SIDE side = selection_side;
@@ -330,11 +354,18 @@ void WorldTask::logic()
                     side = yr < GLFix(45) ? AABB::FRONT : yr < GLFix(135) ? AABB::LEFT : yr < GLFix(225) ? AABB::BACK : yr < GLFix(315) ? AABB::RIGHT : AABB::FRONT;
 
                 world.changeBlock(pos.x, pos.y, pos.z, getBLOCKWDATA(block_to_place, side)); //AABB::SIDE is compatible to BLOCK_SIDE
+                placed = true;
             }
 
             //If the player is stuck now, it's because of the block change, so remove it again
-            if(world.intersect(aabb))
+            if(placed && world.intersect(aabb))
+            {
                 world.changeBlock(pos.x, pos.y, pos.z, current_block);
+                placed = false;
+            }
+
+            if(placed)
+                current_inventory.removeFromCurrentSlot();
         }
     }
     else if(keyPressed(KEY_NSPIRE_9)) //Remove block
@@ -362,6 +393,7 @@ void WorldTask::logic()
 
             if (mining_progress >= mining_duration) {
                 world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
+                current_inventory.addItem(inventoryDropItem(b));
                 world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
                 mining_progress = 0;
             }
@@ -437,6 +469,17 @@ void WorldTask::logic()
 
         key_held_down = true;
     }
+#ifndef _TINSPIRE
+    else
+    {
+        const Uint8 *keys = SDL_GetKeyState(nullptr);
+        if(keys[SDLK_t] != 0)
+        {
+            inventory_task.makeCurrent();
+            key_held_down = true;
+        }
+    }
+#endif
 }
 
 void WorldTask::render()
@@ -602,8 +645,9 @@ void WorldTask::render()
     //Don't draw the inventory when drawing the background for BlockListTask
     if(draw_inventory)
     {
+        const BLOCK_WDATA current_slot = current_inventory.currentSlot();
         current_inventory.draw(*screen);
-        drawStringCenter(global_block_renderer.getName(current_inventory.currentSlot()), 0xFFFF, *screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT - current_inventory.height() - fontHeight());
+        drawStringCenter(current_inventory.currentSlotCount() == 0 ? "Empty" : global_block_renderer.getName(current_slot), 0xFFFF, *screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT - current_inventory.height() - fontHeight());
     }
 
     if(message_timeout > 0)

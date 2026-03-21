@@ -148,8 +148,10 @@ void Task::drawBackground()
  * Version 5 (710e7269): Add settings
  * Version 6 (d52f3992): BLOCK_SIZE changed from 120 to 128,
  *                       gzip compression introduced shortly afterwards
+ * Version 7: Inventory stacks now store per-slot item counts
+ * Version 8: Inventory expanded to 36 slots (9 hotbar + 27 storage)
  */
-static constexpr int savefile_version = 6;
+static constexpr int savefile_version = 8;
 
 #define LOAD_FROM_FILE(var) if(gzfread(&var, sizeof(var), 1, file) != 1) { gzclose(file); return false; }
 #define SAVE_TO_FILE(var) if(gzfwrite(&var, sizeof(var), 1, file) != 1) { gzclose(file); return false; }
@@ -166,9 +168,9 @@ bool Task::load()
     int version;
     LOAD_FROM_FILE(version);
 
-    static_assert(savefile_version == 6, "Adjust loading code for backward compatibility");
+    static_assert(savefile_version == 8, "Adjust loading code for backward compatibility");
 
-    if(version < 4 || version > 6)
+    if(version < 4 || version > 8)
     {
         printf("Save file version %d not supported!\n", version);
         gzclose(file);
@@ -181,7 +183,43 @@ bool Task::load()
         return false;
     }
 
-    LOAD_FROM_FILE(current_inventory.entries)
+    if(version >= 8)
+    {
+        LOAD_FROM_FILE(current_inventory.entries)
+        LOAD_FROM_FILE(current_inventory.counts)
+    }
+    else
+    {
+        BLOCK_WDATA old_entries[5] = {};
+        unsigned int old_counts[5] = {};
+
+        if(gzfread(old_entries, sizeof(old_entries), 1, file) != 1)
+        {
+            gzclose(file);
+            return false;
+        }
+
+        if(version >= 7)
+        {
+            if(gzfread(old_counts, sizeof(old_counts), 1, file) != 1)
+            {
+                gzclose(file);
+                return false;
+            }
+        }
+
+        for(int i = 0; i < Inventory::slot_count; ++i)
+            current_inventory.setSlot(i, BLOCK_AIR, 0);
+
+        for(int i = 0; i < 5; ++i)
+        {
+            const unsigned int count = (version >= 7) ? old_counts[i] : 1;
+            current_inventory.setSlot(i, old_entries[i], count);
+        }
+    }
+
+    current_inventory.importLegacyCounts();
+
     LOAD_FROM_FILE(world_task.xr)
     LOAD_FROM_FILE(world_task.yr)
     LOAD_FROM_FILE(world_task.x)
@@ -221,6 +259,7 @@ bool Task::save()
         return false;
     }
     SAVE_TO_FILE(current_inventory.entries)
+    SAVE_TO_FILE(current_inventory.counts)
     SAVE_TO_FILE(world_task.xr)
     SAVE_TO_FILE(world_task.yr)
     SAVE_TO_FILE(world_task.x)
