@@ -253,8 +253,10 @@ void WorldTask::logic()
 
     do_test = !do_test;
 
+    if(!keyPressed(KEY_NSPIRE_9)) mining_progress = 0;
+
     if(key_held_down)
-        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_9) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU);
+        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU);
 
     else if(keyPressed(KEY_NSPIRE_ESC)) //Save & Exit
     {
@@ -337,13 +339,37 @@ void WorldTask::logic()
     }
     else if(keyPressed(KEY_NSPIRE_9)) //Remove block
     {
-        if(selection_side != AABB::NONE && world.getBlock(selection_pos.x, selection_pos.y, selection_pos.z) != BLOCK_BEDROCK)
+        BLOCK_WDATA b = world.getBlock(selection_pos.x, selection_pos.y, selection_pos.z);
+        if(selection_side != AABB::NONE && getBLOCK(b) != BLOCK_BEDROCK && getBLOCK(b) != BLOCK_AIR)
         {
-            world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
-            world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
-        }
+            if (mining_pos.x != selection_pos.x || mining_pos.y != selection_pos.y || mining_pos.z != selection_pos.z) {
+                mining_pos = selection_pos;
+                mining_progress = 0;
+                
+                BLOCK b_type = getBLOCK(b);
+                mining_duration = 30; // Default
+                if (b_type == BLOCK_DIRT || b_type == BLOCK_SAND || b_type == BLOCK_LEAVES || b_type == BLOCK_GRASS) mining_duration = 10;
+                else if (b_type == BLOCK_STONE || b_type == BLOCK_COBBLESTONE || b_type == BLOCK_IRON_ORE || b_type == BLOCK_COAL_ORE || b_type == BLOCK_FURNACE) mining_duration = 60;
+                else if (b_type == BLOCK_WOOD || b_type == BLOCK_PLANKS_NORMAL || b_type == BLOCK_CRAFTING_TABLE) mining_duration = 30;
+                else if (b_type == BLOCK_GLASS) mining_duration = 15;
+                else if (b_type == BLOCK_IRON || b_type == BLOCK_GOLD || b_type == BLOCK_DIAMOND) mining_duration = 100;
+            }
+            mining_progress++;
 
-        key_held_down = true;
+            if (mining_progress % 10 == 0) {
+                world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
+            }
+
+            if (mining_progress >= mining_duration) {
+                world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
+                world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
+                mining_progress = 0;
+            }
+        }
+        else
+        {
+            mining_progress = 0;
+        }
     }
     else if(keyPressed(KEY_NSPIRE_1)) //Switch inventory slot
     {
@@ -456,6 +482,14 @@ void WorldTask::render()
 
     glPushMatrix();
     glTranslatef(indicator_x, indicator_y, indicator_z);
+
+    if (mining_progress > 0 && mining_duration > 0 && 
+        selection_pos.x == mining_pos.x && selection_pos.y == mining_pos.y && selection_pos.z == mining_pos.z) {
+        GLFix progress(1.0f - static_cast<float>(mining_progress) / mining_duration);
+        glTranslatef(BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2);
+        glScale3f(progress, progress, progress);
+        glTranslatef(-BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2);
+    }
 
     glBegin(GL_QUADS);
     switch(selection_side)

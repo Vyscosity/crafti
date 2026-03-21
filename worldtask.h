@@ -39,6 +39,10 @@ private:
     GLFix vy = 0; //Y-Velocity for gravity and jumps
     bool in_water = false;
 
+    VECTOR3 mining_pos = {-1, -1, -1};
+    int mining_progress = 0;
+    int mining_duration = 0;
+
     static constexpr unsigned int blockselection_frames = 2;
     unsigned int blockselection_frame = 0, blockselection_frame_fraction = 0;
 
