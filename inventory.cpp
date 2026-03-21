@@ -16,6 +16,10 @@ static constexpr int hotbar_src_x = 0;
 static constexpr int hotbar_src_y = 0;
 static constexpr int hotbar_src_width = 22 * Inventory::hotbar_slot_count;
 static constexpr int hotbar_src_height = 22;
+static constexpr int hotbar_slot_src_left = 3;
+static constexpr int hotbar_slot_src_top = 3;
+static constexpr int hotbar_slot_src_size = 16;
+static constexpr int hotbar_slot_src_pitch = 20;
 
 static int hotbarScale()
 {
@@ -31,8 +35,10 @@ void Inventory::draw(TEXTURE &tex)
     const int hotbar_scale = hotbarScale();
     const int hotbar_draw_width = hotbar_src_width * hotbar_scale;
     const int hotbar_draw_height = hotbar_src_height * hotbar_scale;
-    const int hotbar_slot_pitch = 22 * hotbar_scale;
-    const int hotbar_slot_inset = 3 * hotbar_scale;
+    const int hotbar_slot_size = hotbar_slot_src_size * hotbar_scale;
+    const int hotbar_slot_pitch = hotbar_slot_src_pitch * hotbar_scale;
+    const int hotbar_slots_left = hotbar_slot_src_left * hotbar_scale;
+    const int hotbar_slots_top = hotbar_slot_src_top * hotbar_scale;
 
     const int inventory_x = (SCREEN_WIDTH - hotbar_draw_width) / 2;
     const int inventory_y = SCREEN_HEIGHT - hotbar_draw_height - 3;
@@ -44,9 +50,9 @@ void Inventory::draw(TEXTURE &tex)
         if(counts[i] == 0 || getBLOCK(block) == BLOCK_AIR)
             continue;
 
-        const int slot_x = inventory_x + static_cast<int>(i) * hotbar_slot_pitch;
-        const int slot_y = inventory_y;
-        const int slot_px = hotbar_slot_pitch;
+        const int slot_x = inventory_x + hotbar_slots_left + static_cast<int>(i) * hotbar_slot_pitch;
+        const int slot_y = inventory_y + hotbar_slots_top;
+        const int slot_px = hotbar_slot_size;
 
         if(getBLOCK(block) == BLOCK_DOOR)
         {
@@ -68,7 +74,7 @@ void Inventory::draw(TEXTURE &tex)
 
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", counts[i]);
-        drawString(count_text, 0xFFFF, tex, slot_x + hotbar_slot_inset + 20, inventory_y + hotbar_slot_inset + 2);
+        drawString(count_text, 0xFFFF, tex, slot_x + hotbar_slot_size - 10, slot_y + 2);
     }
 
     const int selector_src_x = 24;
@@ -76,8 +82,8 @@ void Inventory::draw(TEXTURE &tex)
     const int selector_size = 24;
     drawTexture(inventory, tex,
                 selector_src_x, selector_src_y, selector_size, selector_size,
-                inventory_x + current_slot * hotbar_slot_pitch - hotbar_scale,
-                inventory_y - hotbar_scale,
+                inventory_x + hotbar_slots_left + current_slot * hotbar_slot_pitch - 4 * hotbar_scale,
+                inventory_y + hotbar_slots_top - 4 * hotbar_scale,
                 selector_size * hotbar_scale, selector_size * hotbar_scale);
 }
 
