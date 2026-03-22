@@ -71,15 +71,19 @@ jobs:
               exit 1
             fi
             
-            if [ ! -d /tmp/ndless-src/genzehn ]; then
-              echo "✗ ERROR: genzehn directory not found in cloned repository"
+            if [ ! -d /tmp/ndless-src/ndless/genzehn ]; then
+              echo "✗ ERROR: genzehn directory not found in ndless/genzehn"
               echo "Repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
+              if [ -d /tmp/ndless-src/ndless ]; then
+                echo "ndless/ subdirectory contents:"
+                ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
+              fi
               exit 1
             fi
             
             echo "Building genzehn from source..."
-            cd /tmp/ndless-src/genzehn
+            cd /tmp/ndless-src/ndless/genzehn
             make
             
             if [ ! -f genzehn ]; then
@@ -120,14 +124,18 @@ jobs:
               git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
             fi
             
-            if [ ! -d /tmp/ndless-src/bin ]; then
-              echo "✗ ERROR: bin directory not found in Ndless repository"
+            if [ ! -d /tmp/ndless-src/ndless/bin ]; then
+              echo "✗ ERROR: bin directory not found in ndless/bin"
               echo "Repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
+              if [ -d /tmp/ndless-src/ndless ]; then
+                echo "ndless/ subdirectory contents:"
+                ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
+              fi
               exit 1
             fi
             
-            cd /tmp/ndless-src/bin
+            cd /tmp/ndless-src/ndless/bin
             if [ ! -f make-prg.c ]; then
               echo "✗ ERROR: make-prg.c not found"
               exit 1
