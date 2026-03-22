@@ -38,8 +38,9 @@ jobs:
         wget -q https://github.com/Goplat/nspire-tools/archive/refs/heads/master.zip
         unzip -q master.zip
         cd nspire-tools-master
-        make
-        sudo make install
+        make V=1
+        sudo install -m 755 genzehn /usr/local/bin/
+        sudo install -m 755 make-prg /usr/local/bin/
     
     - name: Setup nspire compiler symlinks
       run: |
