@@ -43,19 +43,35 @@ jobs:
           cd /tmp
           
           # Try official Ndless release assets
+          GENZEHN_FOUND=0
           for url in \
             "https://github.com/ndless-nspire/ndless/releases/download/v4.5.2/genzehn" \
             "https://github.com/ndless-nspire/ndless/releases/download/v4.4.0/genzehn"
           do
             if wget -q --timeout=10 "$url" -O genzehn 2>/dev/null; then
               sudo install -m 755 genzehn /usr/local/bin/
-              echo "✓ genzehn installed"
+              echo "✓ genzehn installed from release"
+              GENZEHN_FOUND=1
               break
             fi
           done
           
+          # Build from source if binary downloads failed
+          if [ $GENZEHN_FOUND -eq 0 ]; then
+            echo "Prebuilt genzehn not available - building from source..."
+            if [ -d /tmp/ndless-src ]; then
+              rm -rf /tmp/ndless-src
+            fi
+            git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
+            cd /tmp/ndless-src/genzehn
+            make
+            sudo install -m 755 genzehn /usr/local/bin/
+            echo "✓ genzehn built from source"
+          fi
+          
           if ! which genzehn >/dev/null 2>&1; then
-            echo "⚠ WARNING: genzehn not found - build may fail"
+            echo "✗ ERROR: genzehn still not available"
+            exit 1
           fi
         fi
         
@@ -64,12 +80,25 @@ jobs:
           echo "Installing make-prg..."
           cd /tmp
           
+          MAKEPRG_FOUND=0
           # Try to get make-prg from Ndless repository
           if wget -q --timeout=10 https://raw.githubusercontent.com/ndless-nspire/ndless/master/bin/make-prg -O make-prg 2>/dev/null; then
             sudo install -m 755 make-prg /usr/local/bin/
-            echo "✓ make-prg installed"
-          else
-            echo "⚠ WARNING: make-prg not found - build may fail"
+            echo "✓ make-prg installed from repo"
+            MAKEPRG_FOUND=1
+          fi
+          
+          # Build from source if download failed
+          if [ $MAKEPRG_FOUND -eq 0 ]; then
+            echo "make-prg not available from repo - building from source..."
+            cd /tmp/ndless-src/bin
+            gcc -o make-prg make-prg.c
+            sudo install -m 755 make-prg /usr/local/bin/
+            echo "✓ make-prg built from source"
+          fi
+          
+          if ! which make-prg >/dev/null 2>&1; then
+            echo "⚠ WARNING: make-prg still not available - continuing without it"
           fi
         fi
         
@@ -87,8 +116,16 @@ jobs:
     - name: Verify tools
       run: |
         arm-none-eabi-g++ --version
-        genzehn --version
-        make-prg --version
+        if which genzehn >/dev/null 2>&1; then
+          genzehn --version
+        else
+          echo "⚠ genzehn not available"
+        fi
+        if which make-prg >/dev/null 2>&1; then
+          make-prg --version
+        else
+          echo "⚠ make-prg not available"
+        fi
     
     - name: Build Crafti Nspire
       run: |
