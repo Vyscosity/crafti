@@ -28,7 +28,6 @@ jobs:
           build-essential \
           gcc-arm-none-eabi \
           binutils-arm-none-eabi \
-          g++-arm-none-eabi \
           zlib1g-dev \
           wget \
           unzip
