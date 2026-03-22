@@ -71,9 +71,18 @@ jobs:
               exit 1
             fi
             
-            if [ ! -d /tmp/ndless-src/ndless/genzehn ]; then
-              echo "✗ ERROR: genzehn directory not found in ndless/genzehn"
-              echo "Repository structure:"
+            # Check multiple possible locations for genzehn
+            GENZEHN_DIR=""
+            if [ -d /tmp/ndless-src/genzehn ]; then
+              GENZEHN_DIR=/tmp/ndless-src/genzehn
+            elif [ -d /tmp/ndless-src/ndless/genzehn ]; then
+              GENZEHN_DIR=/tmp/ndless-src/ndless/genzehn
+            else
+              echo "✗ ERROR: genzehn directory not found"
+              echo "Checked locations:"
+              echo "  - /tmp/ndless-src/genzehn"
+              echo "  - /tmp/ndless-src/ndless/genzehn"
+              echo "Actual repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
               if [ -d /tmp/ndless-src/ndless ]; then
                 echo "ndless/ subdirectory contents:"
@@ -82,8 +91,8 @@ jobs:
               exit 1
             fi
             
-            echo "Building genzehn from source..."
-            cd /tmp/ndless-src/ndless/genzehn
+            echo "Building genzehn from source at $GENZEHN_DIR..."
+            cd "$GENZEHN_DIR"
             make
             
             if [ ! -f genzehn ]; then
@@ -124,9 +133,18 @@ jobs:
               git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
             fi
             
-            if [ ! -d /tmp/ndless-src/ndless/bin ]; then
-              echo "✗ ERROR: bin directory not found in ndless/bin"
-              echo "Repository structure:"
+            # Check multiple possible locations for bin directory
+            BIN_DIR=""
+            if [ -d /tmp/ndless-src/bin ]; then
+              BIN_DIR=/tmp/ndless-src/bin
+            elif [ -d /tmp/ndless-src/ndless/bin ]; then
+              BIN_DIR=/tmp/ndless-src/ndless/bin
+            else
+              echo "✗ ERROR: bin directory not found"
+              echo "Checked locations:"
+              echo "  - /tmp/ndless-src/bin"
+              echo "  - /tmp/ndless-src/ndless/bin"
+              echo "Actual repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
               if [ -d /tmp/ndless-src/ndless ]; then
                 echo "ndless/ subdirectory contents:"
@@ -135,7 +153,7 @@ jobs:
               exit 1
             fi
             
-            cd /tmp/ndless-src/ndless/bin
+            cd "$BIN_DIR"
             if [ ! -f make-prg.c ]; then
               echo "✗ ERROR: make-prg.c not found"
               exit 1
