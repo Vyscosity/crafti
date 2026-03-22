@@ -33,6 +33,14 @@ jobs:
           wget \
           unzip
     
+    - name: Verify build tools
+      run: |
+        echo "Checking build tools:"
+        g++ --version || echo "⚠ g++ not found"
+        gcc --version || echo "⚠ gcc not found"
+        which pkg-config && pkg-config --list-all | grep -i boost || echo "⚠ boost not found via pkg-config"
+        dpkg -l | grep -E "libboost-program-options|zlib1g-dev" || echo "⚠ Some packages may be missing"
+    
     - name: Install nspire-tools
       run: |
         set -e
@@ -111,10 +119,19 @@ jobs:
             
             echo "Building genzehn from source at $GENZEHN_DIR..."
             cd "$GENZEHN_DIR"
-            make
+            
+            echo "Running: make"
+            if ! make 2>&1; then
+              echo "✗ ERROR: make command failed"
+              echo "Directory contents:"
+              ls -la
+              exit 1
+            fi
             
             if [ ! -f genzehn ]; then
               echo "✗ ERROR: genzehn binary not created by make"
+              echo "Generated files in $GENZEHN_DIR:"
+              ls -la
               exit 1
             fi
             
