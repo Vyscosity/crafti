@@ -77,16 +77,33 @@ jobs:
               GENZEHN_DIR=/tmp/ndless-src/genzehn
             elif [ -d /tmp/ndless-src/ndless/genzehn ]; then
               GENZEHN_DIR=/tmp/ndless-src/ndless/genzehn
+            elif [ -d /tmp/ndless-src/tools/genzehn ]; then
+              GENZEHN_DIR=/tmp/ndless-src/tools/genzehn
             else
+              # Try to find genzehn directory recursively
+              echo "⚠ Using find to locate genzehn directory..."
+              FOUND_DIR=$(find /tmp/ndless-src -type d -name genzehn 2>/dev/null | head -n 1)
+              if [ -n "$FOUND_DIR" ]; then
+                GENZEHN_DIR="$FOUND_DIR"
+                echo "✓ Found genzehn at: $GENZEHN_DIR"
+              fi
+            fi
+            
+            if [ -z "$GENZEHN_DIR" ]; then
               echo "✗ ERROR: genzehn directory not found"
               echo "Checked locations:"
               echo "  - /tmp/ndless-src/genzehn"
               echo "  - /tmp/ndless-src/ndless/genzehn"
+              echo "  - /tmp/ndless-src/tools/genzehn"
               echo "Actual repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
               if [ -d /tmp/ndless-src/ndless ]; then
                 echo "ndless/ subdirectory contents:"
                 ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
+              fi
+              if [ -d /tmp/ndless-src/tools ]; then
+                echo "tools/ subdirectory contents:"
+                ls -la /tmp/ndless-src/tools/ 2>/dev/null || true
               fi
               exit 1
             fi
@@ -139,16 +156,35 @@ jobs:
               BIN_DIR=/tmp/ndless-src/bin
             elif [ -d /tmp/ndless-src/ndless/bin ]; then
               BIN_DIR=/tmp/ndless-src/ndless/bin
+            elif [ -d /tmp/ndless-src/tools/bin ]; then
+              BIN_DIR=/tmp/ndless-src/tools/bin
             else
-              echo "✗ ERROR: bin directory not found"
+              # Try to find bin directory recursively (containing make-prg.c)
+              echo "⚠ Using find to locate bin directory with make-prg.c..."
+              FOUND_DIR=$(find /tmp/ndless-src -type d -name bin 2>/dev/null | while read dir; do
+                [ -f "$dir/make-prg.c" ] && echo "$dir" && break
+              done)
+              if [ -n "$FOUND_DIR" ]; then
+                BIN_DIR="$FOUND_DIR"
+                echo "✓ Found bin dir at: $BIN_DIR"
+              fi
+            fi
+            
+            if [ -z "$BIN_DIR" ]; then
+              echo "✗ ERROR: bin directory with make-prg.c not found"
               echo "Checked locations:"
               echo "  - /tmp/ndless-src/bin"
               echo "  - /tmp/ndless-src/ndless/bin"
+              echo "  - /tmp/ndless-src/tools/bin"
               echo "Actual repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
               if [ -d /tmp/ndless-src/ndless ]; then
                 echo "ndless/ subdirectory contents:"
                 ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
+              fi
+              if [ -d /tmp/ndless-src/tools ]; then
+                echo "tools/ subdirectory contents:"
+                ls -la /tmp/ndless-src/tools/ 2>/dev/null || true
               fi
               exit 1
             fi
