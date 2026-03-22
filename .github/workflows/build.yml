@@ -62,9 +62,31 @@ jobs:
             if [ -d /tmp/ndless-src ]; then
               rm -rf /tmp/ndless-src
             fi
+            echo "Cloning Ndless repository..."
             git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
+            
+            # Verify clone succeeded and genzehn directory exists
+            if [ ! -d /tmp/ndless-src ]; then
+              echo "✗ ERROR: Failed to clone Ndless repository"
+              exit 1
+            fi
+            
+            if [ ! -d /tmp/ndless-src/genzehn ]; then
+              echo "✗ ERROR: genzehn directory not found in cloned repository"
+              echo "Repository structure:"
+              ls -la /tmp/ndless-src/ 2>/dev/null || true
+              exit 1
+            fi
+            
+            echo "Building genzehn from source..."
             cd /tmp/ndless-src/genzehn
             make
+            
+            if [ ! -f genzehn ]; then
+              echo "✗ ERROR: genzehn binary not created by make"
+              exit 1
+            fi
+            
             sudo install -m 755 genzehn /usr/local/bin/
             echo "✓ genzehn built from source"
           fi
@@ -91,8 +113,33 @@ jobs:
           # Build from source if download failed
           if [ $MAKEPRG_FOUND -eq 0 ]; then
             echo "make-prg not available from repo - building from source..."
+            
+            # Ensure Ndless source was cloned (from genzehn build, or clone now)
+            if [ ! -d /tmp/ndless-src ]; then
+              echo "Cloning Ndless repository for make-prg..."
+              git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
+            fi
+            
+            if [ ! -d /tmp/ndless-src/bin ]; then
+              echo "✗ ERROR: bin directory not found in Ndless repository"
+              echo "Repository structure:"
+              ls -la /tmp/ndless-src/ 2>/dev/null || true
+              exit 1
+            fi
+            
             cd /tmp/ndless-src/bin
+            if [ ! -f make-prg.c ]; then
+              echo "✗ ERROR: make-prg.c not found"
+              exit 1
+            fi
+            
             gcc -o make-prg make-prg.c
+            
+            if [ ! -f make-prg ]; then
+              echo "✗ ERROR: make-prg binary not created by gcc"
+              exit 1
+            fi
+            
             sudo install -m 755 make-prg /usr/local/bin/
             echo "✓ make-prg built from source"
           fi
