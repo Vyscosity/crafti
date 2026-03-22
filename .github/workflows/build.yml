@@ -1,0 +1,78 @@
+name: Build Nspire TNS
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'crafti/**.cpp'
+      - 'crafti/**.h'
+      - 'crafti/Makefile'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          gcc-arm-none-eabi \
+          binutils-arm-none-eabi \
+          g++-arm-none-eabi \
+          zlib1g-dev \
+          wget \
+          unzip
+    
+    - name: Install nspire-tools
+      run: |
+        cd /tmp
+        wget -q https://github.com/Goplat/nspire-tools/archive/refs/heads/master.zip
+        unzip -q master.zip
+        cd nspire-tools-master
+        make
+        sudo make install
+    
+    - name: Setup nspire compiler symlinks
+      run: |
+        sudo ln -sf /usr/bin/arm-none-eabi-gcc /usr/local/bin/nspire-gcc
+        sudo ln -sf /usr/bin/arm-none-eabi-g++ /usr/local/bin/nspire-g++
+        sudo ln -sf /usr/bin/arm-none-eabi-ld /usr/local/bin/nspire-ld
+        sudo ln -sf /usr/bin/arm-none-eabi-as /usr/local/bin/nspire-as
+    
+    - name: Verify tools
+      run: |
+        arm-none-eabi-g++ --version
+        genzehn --version
+        make-prg --version
+    
+    - name: Build Crafti Nspire
+      run: |
+        cd crafti
+        make clean
+        make -j$(nproc)
+        ls -lh crafti.tns
+    
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: crafti.tns
+        path: crafti/crafti.tns
+        retention-days: 30
+    
+    - name: Upload to releases
+      if: success()
+      uses: softprops/action-gh-release@v1
+      with:
+        files: crafti/crafti.tns
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
