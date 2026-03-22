@@ -34,13 +34,20 @@ jobs:
     
     - name: Install nspire-tools
       run: |
+        set -e
         cd /tmp
         wget -q https://github.com/Goplat/nspire-tools/archive/refs/heads/master.zip
         unzip -q master.zip
         cd nspire-tools-master
-        make V=1
+        echo "Building nspire-tools with verbose output..."
+        make V=1 || { echo 'nspire-tools build failed'; exit 1; }
+        echo "Checking for built executables..."
+        ls -lh genzehn make-prg || { echo 'Build artifacts not found!'; exit 1; }
+        echo "Installing to /usr/local/bin..."
         sudo install -m 755 genzehn /usr/local/bin/
         sudo install -m 755 make-prg /usr/local/bin/
+        echo "Verifying installation..."
+        which genzehn && which make-prg
     
     - name: Setup nspire compiler symlinks
       run: |
