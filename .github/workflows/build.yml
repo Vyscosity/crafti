@@ -179,46 +179,22 @@ jobs:
     
     - name: Setup nspire compiler symlinks
       run: |
-        # Create wrapper scripts for ARM compiler that include zlib paths
         ARM_ZLIB_PREFIX="/opt/arm-zlib"
         
         # Create wrapper for nspire-gcc
-        sudo tee /usr/local/bin/nspire-gcc > /dev/null << 'EOF'
-#!/bin/bash
-ARM_ZLIB_PREFIX="/opt/arm-zlib"
-exec /usr/bin/arm-none-eabi-gcc \
-  -I${ARM_ZLIB_PREFIX}/include \
-  -L${ARM_ZLIB_PREFIX}/lib \
-  "$@"
-EOF
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-gcc -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-gcc > /dev/null
         
         # Create wrapper for nspire-g++
-        sudo tee /usr/local/bin/nspire-g++ > /dev/null << 'EOF'
-#!/bin/bash
-ARM_ZLIB_PREFIX="/opt/arm-zlib"
-exec /usr/bin/arm-none-eabi-g++ \
-  -I${ARM_ZLIB_PREFIX}/include \
-  -L${ARM_ZLIB_PREFIX}/lib \
-  "$@"
-EOF
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-g++ -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-g++ > /dev/null
         
-        # Create wrapper for nspire-ld (linker)
-        sudo tee /usr/local/bin/nspire-ld > /dev/null << 'EOF'
-#!/bin/bash
-ARM_ZLIB_PREFIX="/opt/arm-zlib"
-exec /usr/bin/arm-none-eabi-ld \
-  -L${ARM_ZLIB_PREFIX}/lib \
-  "$@"
-EOF
+        # Create wrapper for nspire-ld
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-ld -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-ld > /dev/null
         
-        # Create wrapper for nspire-as (assembler)
-        sudo tee /usr/local/bin/nspire-as > /dev/null << 'EOF'
-#!/bin/bash
-exec /usr/bin/arm-none-eabi-as "$@"
-EOF
+        # Create wrapper for nspire-as
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-as "$@"\n' | sudo tee /usr/local/bin/nspire-as > /dev/null
         
         # Make all wrappers executable
-        sudo chmod +x /usr/local/bin/nspire-*
+        sudo chmod +x /usr/local/bin/nspire-gcc /usr/local/bin/nspire-g++ /usr/local/bin/nspire-ld /usr/local/bin/nspire-as
         
         echo "✓ Compiler wrappers created with ARM zlib paths"
     
