@@ -140,7 +140,7 @@ jobs:
     
     - name: Install nspire-tools
       run: |
-        echo "Building and installing Ndless SDK tools (required for .tns output)..."
+        echo "Installing Ndless SDK tools needed for .tns output..."
         export PATH="/usr/local/bin:$PATH"
 
         if [ ! -d "$NDLSSDK/tools" ]; then
@@ -148,9 +148,11 @@ jobs:
           exit 1
         fi
 
-        make -C "$NDLSSDK/tools" -j"$(nproc)" all
+        # Build host-side genzehn only. Building all SDK tools here may try to
+        # build zehn_loader before nspire-gcc wrappers are configured.
+        make -C "$NDLSSDK/tools/genzehn" -j"$(nproc)" all
 
-        for bin in nspire-tools genzehn make-prg; do
+        for bin in nspire-tools make-prg; do
           if [ ! -x "$NDLSSDK/bin/$bin" ]; then
             echo "✗ ERROR: $NDLSSDK/bin/$bin not found after tool build"
             find "$NDLSSDK" -maxdepth 4 -name "$bin" -type f | head -20 || true
@@ -159,6 +161,14 @@ jobs:
           sudo ln -sf "$NDLSSDK/bin/$bin" "/usr/local/bin/$bin"
           echo "✓ $bin linked from Ndless SDK"
         done
+
+        if [ ! -x "$NDLSSDK/bin/genzehn" ]; then
+          echo "✗ ERROR: $NDLSSDK/bin/genzehn not found after build"
+          find "$NDLSSDK" -maxdepth 4 -name genzehn -type f | head -20 || true
+          exit 1
+        fi
+        sudo ln -sf "$NDLSSDK/bin/genzehn" /usr/local/bin/genzehn
+        echo "✓ genzehn linked from Ndless SDK"
     
     - name: Setup nspire compiler symlinks
       run: |
