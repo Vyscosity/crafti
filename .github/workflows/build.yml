@@ -35,6 +35,20 @@ jobs:
           pkg-config \
           wget \
           unzip
+
+    - name: Setup Ndless SDK headers
+      run: |
+        sudo rm -rf /opt/ndless
+        sudo git clone --depth 1 https://github.com/ndless-nspire/ndless.git /opt/ndless
+
+        if [ ! -f /opt/ndless/ndless-sdk/include/libndls.h ]; then
+          echo "✗ ERROR: ndless-sdk/include/libndls.h not found"
+          find /opt/ndless -name libndls.h | head -20
+          exit 1
+        fi
+
+        echo "✓ Ndless SDK header found: /opt/ndless/ndless-sdk/include/libndls.h"
+        echo "NDLSSDK=/opt/ndless/ndless-sdk" >> $GITHUB_ENV
     
     - name: Build zlib for ARM
       run: |
@@ -188,12 +202,13 @@ jobs:
     - name: Setup nspire compiler symlinks
       run: |
         ARM_ZLIB_PREFIX="/opt/arm-zlib"
+        NDLSSDK="/opt/ndless/ndless-sdk"
         
         # Create wrapper for nspire-gcc
-        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-gcc -D_TINSPIRE -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-gcc > /dev/null
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-gcc -D_TINSPIRE -I%s/include -I%s/include -I%s/include/freetype2 -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$NDLSSDK" "$NDLSSDK" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-gcc > /dev/null
         
         # Create wrapper for nspire-g++
-        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-g++ -D_TINSPIRE -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-g++ > /dev/null
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-g++ -D_TINSPIRE -I%s/include -I%s/include -I%s/include/freetype2 -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$NDLSSDK" "$NDLSSDK" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-g++ > /dev/null
         
         # Create wrapper for nspire-ld
         printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-ld -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-ld > /dev/null
@@ -209,6 +224,7 @@ jobs:
     - name: Verify tools
       run: |
         arm-none-eabi-g++ --version
+        test -f /opt/ndless/ndless-sdk/include/libndls.h && echo "✓ libndls.h available from Ndless SDK"
         if which genzehn >/dev/null 2>&1; then
           genzehn --version
         else
