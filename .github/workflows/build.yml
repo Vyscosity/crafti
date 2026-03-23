@@ -260,6 +260,9 @@ jobs:
           echo "✗ ERROR: Makefile not found!"
           exit 1
         fi
+
+        # Ensure no stale objects from mismatched toolchains remain.
+        find . -name '*.o' -delete
         
         # Check if we have the necessary tools
         if ! which genzehn >/dev/null 2>&1; then
