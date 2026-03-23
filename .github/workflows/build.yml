@@ -67,7 +67,7 @@ jobs:
         
         if g++ -std=c++11 /tmp/test.cpp -lboost_program_options -lz -o /tmp/test 2>&1; then
           echo "✓ Test compilation succeeded"
-          ./tmp/test && echo "✓ Test binary executed successfully"
+          /tmp/test && echo "✓ Test binary executed successfully"
         else
           echo "✗ WARNING: Test compilation failed - see error above"
         fi
