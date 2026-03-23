@@ -30,16 +30,47 @@ jobs:
           binutils-arm-none-eabi \
           zlib1g-dev \
           libboost-program-options-dev \
+          libboost-program-options1.74.0 \
+          pkg-config \
           wget \
           unzip
     
-    - name: Verify build tools
+    - name: Verify build tools and libraries
       run: |
-        echo "Checking build tools:"
+        echo "Checking build tools and libraries:"
         g++ --version || echo "⚠ g++ not found"
         gcc --version || echo "⚠ gcc not found"
-        which pkg-config && pkg-config --list-all | grep -i boost || echo "⚠ boost not found via pkg-config"
-        dpkg -l | grep -E "libboost-program-options|zlib1g-dev" || echo "⚠ Some packages may be missing"
+        
+        echo ""
+        echo "Checking for Boost libraries:"
+        find /usr -name "*boost_program_options*" 2>/dev/null | head -20 || echo "⚠ Boost libraries not found"
+        
+        echo ""
+        echo "Checking for zlib:"
+        find /usr -name "*z.so*" -o -name "*z.a" 2>/dev/null | head -20 || echo "⚠ zlib not found"
+        
+        echo ""
+        echo "Installed package details:"
+        dpkg -l | grep -E "libboost-program-options|zlib1g" || echo "⚠ Some packages may be missing"
+        
+        echo ""
+        echo "Testing g++ compilation with Boost and zlib:"
+        cat > /tmp/test.cpp << 'EOF'
+        #include <boost/program_options.hpp>
+        #include <zlib.h>
+        int main() {
+          z_const char* msg = "test";
+          (void)msg;
+          return 0;
+        }
+        EOF
+        
+        if g++ -std=c++11 /tmp/test.cpp -lboost_program_options -lz -o /tmp/test 2>&1; then
+          echo "✓ Test compilation succeeded"
+          ./tmp/test && echo "✓ Test binary executed successfully"
+        else
+          echo "✗ WARNING: Test compilation failed - see error above"
+        fi
     
     - name: Install nspire-tools
       run: |
@@ -120,23 +151,48 @@ jobs:
             echo "Building genzehn from source at $GENZEHN_DIR..."
             cd "$GENZEHN_DIR"
             
+            echo "Contents of genzehn directory before build:"
+            ls -la
+            
+            echo ""
             echo "Running: make"
-            if ! make 2>&1; then
+            if ! make 2>&1 | tee /tmp/make_output.log; then
               echo "✗ ERROR: make command failed"
-              echo "Directory contents:"
+              echo ""
+              echo "Build error output:"
+              cat /tmp/make_output.log
+              echo ""
+              echo "Directory contents after failed build:"
               ls -la
+              
+              # Check for partial objects/binaries
+              echo ""
+              echo "Checking for compiler/linker errors:"
+              grep -i "error\|undefined reference" /tmp/make_output.log || echo "No error patterns found"
+              
               exit 1
             fi
             
-            if [ ! -f genzehn ]; then
+            if [ ! -f genzehn ] && [ ! -f ../../bin/genzehn ]; then
               echo "✗ ERROR: genzehn binary not created by make"
+              echo ""
               echo "Generated files in $GENZEHN_DIR:"
               ls -la
+              echo ""
+              echo "Checking directory structure:"
+              find . -type f -name "genzehn" 2>/dev/null || echo "No genzehn binary found"
               exit 1
             fi
             
-            sudo install -m 755 genzehn /usr/local/bin/
-            echo "✓ genzehn built from source"
+            # genzehn might be in ../../bin/genzehn or ./genzehn
+            GENZEHN_BIN="genzehn"
+            if [ ! -f "$GENZEHN_BIN" ] && [ -f ../../bin/genzehn ]; then
+              GENZEHN_BIN="../../bin/genzehn"
+            fi
+            
+            echo "✓ genzehn binary created at: $GENZEHN_BIN"
+            sudo install -m 755 "$GENZEHN_BIN" /usr/local/bin/
+            echo "✓ genzehn built and installed from source"
           fi
           
           if ! which genzehn >/dev/null 2>&1; then
