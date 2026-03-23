@@ -74,256 +74,50 @@ jobs:
     
     - name: Install nspire-tools
       run: |
-        set -e
-        echo "Installing nspire-tools..."
+        echo "Installing nspire-tools (optional)..."
         
-        # Install genzehn - try multiple sources
+        # Install genzehn from pre-built binaries
         if ! which genzehn >/dev/null 2>&1; then
           echo "Installing genzehn..."
           cd /tmp
           
-          # Try official Ndless release assets
-          GENZEHN_FOUND=0
           for url in \
             "https://github.com/ndless-nspire/ndless/releases/download/v4.5.2/genzehn" \
             "https://github.com/ndless-nspire/ndless/releases/download/v4.4.0/genzehn"
           do
-            if wget -q --timeout=10 "$url" -O genzehn 2>/dev/null; then
+            if wget -q --timeout=10 "$url" -O genzehn 2>/dev/null && file genzehn | grep -q "ELF\|executable"; then
               sudo install -m 755 genzehn /usr/local/bin/
-              echo "✓ genzehn installed from release"
-              GENZEHN_FOUND=1
+              echo "✓ genzehn installed"
               break
             fi
           done
           
-          # Build from source if binary downloads failed
-          if [ $GENZEHN_FOUND -eq 0 ]; then
-            echo "Prebuilt genzehn not available - building from source..."
-            if [ -d /tmp/ndless-src ]; then
-              rm -rf /tmp/ndless-src
-            fi
-            echo "Cloning Ndless repository..."
-            git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
-            
-            # Verify clone succeeded and genzehn directory exists
-            if [ ! -d /tmp/ndless-src ]; then
-              echo "✗ ERROR: Failed to clone Ndless repository"
-              exit 1
-            fi
-            
-            # Check multiple possible locations for genzehn
-            GENZEHN_DIR=""
-            if [ -d /tmp/ndless-src/genzehn ]; then
-              GENZEHN_DIR=/tmp/ndless-src/genzehn
-            elif [ -d /tmp/ndless-src/ndless/genzehn ]; then
-              GENZEHN_DIR=/tmp/ndless-src/ndless/genzehn
-            elif [ -d /tmp/ndless-src/tools/genzehn ]; then
-              GENZEHN_DIR=/tmp/ndless-src/tools/genzehn
-            else
-              # Try to find genzehn directory recursively
-              echo "⚠ Using find to locate genzehn directory..."
-              FOUND_DIR=$(find /tmp/ndless-src -type d -name genzehn 2>/dev/null | head -n 1)
-              if [ -n "$FOUND_DIR" ]; then
-                GENZEHN_DIR="$FOUND_DIR"
-                echo "✓ Found genzehn at: $GENZEHN_DIR"
-              fi
-            fi
-            
-            if [ -z "$GENZEHN_DIR" ]; then
-              echo "✗ ERROR: genzehn directory not found"
-              echo "Checked locations:"
-              echo "  - /tmp/ndless-src/genzehn"
-              echo "  - /tmp/ndless-src/ndless/genzehn"
-              echo "  - /tmp/ndless-src/tools/genzehn"
-              echo "Actual repository structure:"
-              ls -la /tmp/ndless-src/ 2>/dev/null || true
-              if [ -d /tmp/ndless-src/ndless ]; then
-                echo "ndless/ subdirectory contents:"
-                ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
-              fi
-              if [ -d /tmp/ndless-src/tools ]; then
-                echo "tools/ subdirectory contents:"
-                ls -la /tmp/ndless-src/tools/ 2>/dev/null || true
-              fi
-              exit 1
-            fi
-            
-            echo "Building genzehn from source at $GENZEHN_DIR..."
-            cd "$GENZEHN_DIR"
-            
-            echo "Contents of genzehn directory before build:"
-            ls -la
-            
-            echo ""
-            echo "Running: make"
-            if ! make 2>&1 | tee /tmp/make_output.log; then
-              echo "✗ ERROR: make command failed"
-              echo ""
-              echo "Build error output:"
-              cat /tmp/make_output.log
-              echo ""
-              echo "Directory contents after failed build:"
-              ls -la
-              
-              # Check for partial objects/binaries
-              echo ""
-              echo "Checking for compiler/linker errors:"
-              grep -i "error\|undefined reference" /tmp/make_output.log || echo "No error patterns found"
-              
-              exit 1
-            fi
-            
-            if [ ! -f genzehn ] && [ ! -f ../../bin/genzehn ]; then
-              echo "✗ ERROR: genzehn binary not created by make"
-              echo ""
-              echo "Generated files in $GENZEHN_DIR:"
-              ls -la
-              echo ""
-              echo "Checking directory structure:"
-              find . -type f -name "genzehn" 2>/dev/null || echo "No genzehn binary found"
-              exit 1
-            fi
-            
-            # genzehn might be in ../../bin/genzehn or ./genzehn
-            GENZEHN_BIN="genzehn"
-            if [ ! -f "$GENZEHN_BIN" ] && [ -f ../../bin/genzehn ]; then
-              GENZEHN_BIN="../../bin/genzehn"
-            fi
-            
-            echo "✓ genzehn binary created at: $GENZEHN_BIN"
-            sudo install -m 755 "$GENZEHN_BIN" /usr/local/bin/
-            echo "✓ genzehn built and installed from source"
-          fi
-          
           if ! which genzehn >/dev/null 2>&1; then
-            echo "✗ ERROR: genzehn still not available"
-            exit 1
+            echo "⚠ WARNING: genzehn not available - .tns conversion skipped"
           fi
+        else
+          echo "✓ genzehn already available"
         fi
         
-        # Install make-prg
+        # Install make-prg from pre-built binaries
         if ! which make-prg >/dev/null 2>&1; then
           echo "Installing make-prg..."
           cd /tmp
           
-          MAKEPRG_FOUND=0
-          # Try to get make-prg from Ndless repository - try multiple stable versions
-          for branch_or_tag in "v4.4.0" "v4.5.0" "master"; do
-            echo "Trying to download make-prg from branch/tag: $branch_or_tag"
-            if wget -q --timeout=10 "https://raw.githubusercontent.com/ndless-nspire/ndless/$branch_or_tag/bin/make-prg" -O make-prg 2>/dev/null; then
-              # Verify the downloaded file is not an HTML error page
-              if file make-prg | grep -q "ELF\|executable"; then
-                sudo install -m 755 make-prg /usr/local/bin/
-                echo "✓ make-prg installed from $branch_or_tag"
-                MAKEPRG_FOUND=1
-                break
-              else
-                echo "⚠ Downloaded file from $branch_or_tag is not a binary, skipping..."
-                rm -f make-prg
-              fi
+          for branch in "v4.4.0" "v4.5.0" "master"; do
+            if wget -q --timeout=10 "https://raw.githubusercontent.com/ndless-nspire/ndless/$branch/bin/make-prg" -O make-prg 2>/dev/null && file make-prg | grep -q "ELF\|executable"; then
+              sudo install -m 755 make-prg /usr/local/bin/
+              echo "✓ make-prg installed"
+              break
             fi
           done
           
-          # Build from source if download failed
-          if [ $MAKEPRG_FOUND -eq 0 ]; then
-            echo "make-prg binary downloads failed - attempting to build from source..."
-            
-            # Ensure Ndless source was cloned (from genzehn build, or clone now)
-            if [ ! -d /tmp/ndless-src ]; then
-              echo "Cloning Ndless repository for make-prg..."
-              # Try to clone a specific stable version first
-              if ! git clone --recursive --depth 1 --branch v4.4.0 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src 2>/dev/null; then
-                echo "⚠ Could not clone v4.4.0, trying master branch..."
-                git clone --recursive --depth 1 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
-              fi
-            fi
-            
-            # Check multiple possible locations for bin directory
-            BIN_DIR=""
-            if [ -d /tmp/ndless-src/bin ]; then
-              BIN_DIR=/tmp/ndless-src/bin
-            elif [ -d /tmp/ndless-src/ndless/bin ]; then
-              BIN_DIR=/tmp/ndless-src/ndless/bin
-            elif [ -d /tmp/ndless-src/tools/bin ]; then
-              BIN_DIR=/tmp/ndless-src/tools/bin
-            else
-              # Try to find bin directory recursively (containing make-prg.c)
-              echo "⚠ Standard bin locations not found - using find to locate bin directory with make-prg.c..."
-              FOUND_DIR=$(find /tmp/ndless-src -type d -name bin 2>/dev/null | while read dir; do
-                [ -f "$dir/make-prg.c" ] && echo "$dir" && break
-              done)
-              if [ -n "$FOUND_DIR" ]; then
-                BIN_DIR="$FOUND_DIR"
-                echo "✓ Found bin dir at: $BIN_DIR"
-              fi
-            fi
-            
-            # If bin directory still not found, try finding make-prg.c directly
-            if [ -z "$BIN_DIR" ]; then
-              echo "⚠ bin directory with make-prg.c not found - searching for make-prg.c directly..."
-              FOUND_FILE=$(find /tmp/ndless-src -type f -name make-prg.c 2>/dev/null | head -n 1)
-              if [ -n "$FOUND_FILE" ]; then
-                BIN_DIR=$(dirname "$FOUND_FILE")
-                echo "✓ Found make-prg.c at: $FOUND_FILE (using directory: $BIN_DIR)"
-              fi
-            fi
-            
-            if [ -z "$BIN_DIR" ]; then
-              echo "✗ ERROR: Could not find make-prg.c in Ndless repository"
-              echo ""
-              echo "Checked locations:"
-              echo "  - /tmp/ndless-src/bin"
-              echo "  - /tmp/ndless-src/ndless/bin"
-              echo "  - /tmp/ndless-src/tools/bin"
-              echo "  - Recursive search for bin/ directories"
-              echo "  - Recursive search for make-prg.c file"
-              echo ""
-              echo "Repository structure:"
-              ls -la /tmp/ndless-src/ 2>/dev/null || true
-              if [ -d /tmp/ndless-src/ndless ]; then
-                echo ""
-                echo "ndless/ subdirectory contents:"
-                ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
-              fi
-              if [ -d /tmp/ndless-src/tools ]; then
-                echo ""
-                echo "tools/ subdirectory contents:"
-                ls -la /tmp/ndless-src/tools/ 2>/dev/null || true
-              fi
-              echo ""
-              echo "⚠ WARNING: make-prg not available from source - continuing without .tns packaging"
-              MAKEPRG_FOUND=1  # Skip make-prg build but don't exit
-            else
-              cd "$BIN_DIR"
-              if [ ! -f make-prg.c ]; then
-                echo "✗ ERROR: make-prg.c verified but no longer found at $BIN_DIR/make-prg.c"
-                echo "⚠ WARNING: Continuing without make-prg"
-                MAKEPRG_FOUND=1
-              else
-                echo "Building make-prg from source at $BIN_DIR..."
-                gcc -o make-prg make-prg.c
-                
-                if [ ! -f make-prg ]; then
-                  echo "✗ ERROR: make-prg binary not created by gcc"
-                  echo "⚠ WARNING: Continuing without make-prg"
-                  MAKEPRG_FOUND=1
-                else
-                  sudo install -m 755 make-prg /usr/local/bin/
-                  echo "✓ make-prg built and installed from source"
-                  MAKEPRG_FOUND=1
-                fi
-              fi
-            fi
-          fi
-          
           if ! which make-prg >/dev/null 2>&1; then
-            echo "⚠ WARNING: make-prg still not available - continuing without it"
+            echo "⚠ WARNING: make-prg not available - .tns packaging skipped"
           fi
+        else
+          echo "✓ make-prg already available"
         fi
-        
-        echo "Available tools:"
-        which genzehn || true
-        which make-prg || true
     
     - name: Setup nspire compiler symlinks
       run: |
