@@ -41,7 +41,9 @@ jobs:
     - name: Setup Ndless SDK headers
       run: |
         sudo rm -rf /opt/ndless
-        sudo git clone --depth 1 https://github.com/ndless-nspire/ndless.git /opt/ndless
+        sudo git clone --recurse-submodules https://github.com/ndless-nspire/ndless.git /opt/ndless
+        cd /opt/ndless
+        sudo git submodule update --init --recursive
 
         if [ ! -f /opt/ndless/ndless-sdk/include/libndls.h ]; then
           echo "✗ ERROR: ndless-sdk/include/libndls.h not found"
@@ -49,7 +51,14 @@ jobs:
           exit 1
         fi
 
+        if [ ! -f /opt/ndless/ndless-sdk/thirdparty/zlib/configure ]; then
+          echo "✗ ERROR: ndless-sdk/thirdparty/zlib/configure not found"
+          find /opt/ndless/ndless-sdk -maxdepth 4 -name configure | head -30
+          exit 1
+        fi
+
         echo "✓ Ndless SDK header found: /opt/ndless/ndless-sdk/include/libndls.h"
+        echo "✓ Ndless thirdparty zlib configure found"
         echo "NDLSSDK=/opt/ndless/ndless-sdk" >> $GITHUB_ENV
 
         # Ensure nspire-tools command exists for scripts like make-prg.
@@ -58,26 +67,8 @@ jobs:
           sudo ln -sf "$NSPIRE_TOOLS_BIN" /usr/local/bin/nspire-tools
           echo "✓ nspire-tools symlinked to: $NSPIRE_TOOLS_BIN"
         else
-          echo "⚠ nspire-tools script not found in clone; creating compatibility shim"
-          printf '%s\n' '#!/bin/sh' | sudo tee /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' 'case "$1" in' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '  path)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    echo "/opt/ndless/ndless-sdk"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '  _toolchainpath|toolchainpath)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    echo "/opt/ndless/ndless-sdk/toolchain/install/bin"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '  _zehn_loader_path)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    suffix="$2"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    echo "/usr/local/tools/zehn_loader/zehn_loader${suffix}.tns"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '  *)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    echo "nspire-tools shim: unsupported command \"$1\"" >&2' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    exit 1' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          printf '%s\n' 'esac' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
-          sudo chmod +x /usr/local/bin/nspire-tools
-          echo "✓ nspire-tools compatibility shim installed"
+          echo "✗ ERROR: nspire-tools script not found at $NSPIRE_TOOLS_BIN"
+          exit 1
         fi
 
         echo "nspire-tools path -> $(nspire-tools path)"
@@ -148,127 +139,25 @@ jobs:
     
     - name: Install nspire-tools
       run: |
-        echo "Installing nspire-tools (required for .tns output)..."
-        
-        # Install genzehn from pre-built binaries
-        if ! which genzehn >/dev/null 2>&1; then
-          echo "Installing genzehn..."
-          cd /tmp
-          GENZEHN_INSTALLED=0
-          
-          for url in \
-            "https://github.com/ndless-nspire/ndless/releases/download/v4.5.2/genzehn" \
-            "https://github.com/ndless-nspire/ndless/releases/download/v4.4.0/genzehn"
-          do
-            if wget -q --timeout=10 "$url" -O genzehn 2>/dev/null && file genzehn | grep -q "ELF\|executable"; then
-              sudo install -m 755 genzehn /usr/local/bin/
-              echo "✓ genzehn installed"
-              GENZEHN_INSTALLED=1
-              break
-            fi
-          done
-          
-          # Try using tools from cloned Ndless tree first
-          if [ $GENZEHN_INSTALLED -eq 0 ] && [ -d /opt/ndless ]; then
-            GENZEHN_BIN=$(find /opt/ndless -type f -name genzehn 2>/dev/null | head -n 1)
-            if [ -n "$GENZEHN_BIN" ] && file "$GENZEHN_BIN" | grep -q "ELF\|executable"; then
-              sudo install -m 755 "$GENZEHN_BIN" /usr/local/bin/genzehn
-              echo "✓ genzehn installed from /opt/ndless"
-              GENZEHN_INSTALLED=1
-            fi
-          fi
+        echo "Building and installing Ndless SDK tools (required for .tns output)..."
+        export PATH="/usr/local/bin:$PATH"
 
-          # Try building from source if binary discovery failed
-          if [ $GENZEHN_INSTALLED -eq 0 ]; then
-            echo "⚠ Pre-built genzehn not available, attempting to build from source..."
-            if [ ! -d /tmp/ndless-src ]; then
-              git clone --depth 1 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src 2>/dev/null || true
-            fi
-            
-            if [ -d /tmp/ndless-src ]; then
-              GENZEHN_SRC=$(find /tmp/ndless-src -type f -name "genzehn.cpp" 2>/dev/null | head -n 1)
-              if [ -n "$GENZEHN_SRC" ]; then
-                GENZEHN_DIR=$(dirname "$GENZEHN_SRC")
-                echo "Found genzehn source at: $GENZEHN_SRC"
-                if (cd "$GENZEHN_DIR" && make); then
-                  GENZEHN_BUILT=$(find /tmp/ndless-src -type f -name genzehn 2>/dev/null | xargs -r -I{} sh -c 'file "{}" | grep -q "ELF\|executable" && echo "{}"' | head -n 1)
-                  if [ -n "$GENZEHN_BUILT" ]; then
-                    sudo install -m 755 "$GENZEHN_BUILT" /usr/local/bin/genzehn
-                    echo "✓ genzehn installed from source build: $GENZEHN_BUILT"
-                    GENZEHN_INSTALLED=1
-                  fi
-                fi
-              fi
-            fi
-          fi
-          
-          if [ $GENZEHN_INSTALLED -eq 0 ]; then
-            echo "✗ ERROR: genzehn not available; cannot produce .tns"
-            exit 1
-          fi
-        else
-          echo "✓ genzehn already available"
-        fi
-        
-        # Install make-prg from pre-built binaries
-        if ! which make-prg >/dev/null 2>&1; then
-          echo "Installing make-prg..."
-          cd /tmp
-          MAKEPRG_INSTALLED=0
-          
-          for branch in "v4.4.0" "v4.5.0" "master"; do
-            if wget -q --timeout=10 "https://raw.githubusercontent.com/ndless-nspire/ndless/$branch/bin/make-prg" -O make-prg 2>/dev/null && file make-prg | grep -q "ELF\|executable"; then
-              sudo install -m 755 make-prg /usr/local/bin/
-              echo "✓ make-prg installed"
-              MAKEPRG_INSTALLED=1
-              break
-            fi
-          done
-          
-          # Try using tools from cloned Ndless tree first
-          if [ $MAKEPRG_INSTALLED -eq 0 ] && [ -d /opt/ndless ]; then
-            MAKEPRG_BIN=$(find /opt/ndless -type f -name make-prg 2>/dev/null | head -n 1)
-            if [ -n "$MAKEPRG_BIN" ] && file "$MAKEPRG_BIN" | grep -q "ELF\|executable"; then
-              sudo install -m 755 "$MAKEPRG_BIN" /usr/local/bin/make-prg
-              echo "✓ make-prg installed from /opt/ndless"
-              MAKEPRG_INSTALLED=1
-            fi
-          fi
-
-          # Try building from source if binary discovery failed
-          if [ $MAKEPRG_INSTALLED -eq 0 ]; then
-            echo "⚠ Pre-built make-prg not available, attempting to build from source..."
-            if [ ! -d /tmp/ndless-src ]; then
-              git clone --depth 1 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src 2>/dev/null || true
-            fi
-            
-            if [ -d /tmp/ndless-src ]; then
-              MAKEPRG_SRC=$(find /tmp/ndless-src -type f -name "make-prg.c" 2>/dev/null | head -n 1)
-              if [ -n "$MAKEPRG_SRC" ]; then
-                MAKEPRG_DIR=$(dirname "$MAKEPRG_SRC")
-                echo "Found make-prg source at: $MAKEPRG_SRC"
-                if (cd "$MAKEPRG_DIR" && gcc -o make-prg make-prg.c); then
-                  MAKEPRG_BUILT=$(find /tmp/ndless-src -type f -name make-prg 2>/dev/null | xargs -r -I{} sh -c 'file "{}" | grep -q "ELF\|executable" && echo "{}"' | head -n 1)
-                  if [ -n "$MAKEPRG_BUILT" ]; then
-                    sudo install -m 755 "$MAKEPRG_BUILT" /usr/local/bin/make-prg
-                    echo "✓ make-prg installed from source build: $MAKEPRG_BUILT"
-                    MAKEPRG_INSTALLED=1
-                  fi
-                fi
-              fi
-            fi
-          fi
-          
-          if [ $MAKEPRG_INSTALLED -eq 0 ]; then
-            echo "✗ ERROR: make-prg not available; cannot produce .tns"
-            exit 1
-          fi
-        else
-          echo "✓ make-prg already available"
+        if [ ! -d /opt/ndless/ndless-sdk/tools ]; then
+          echo "✗ ERROR: /opt/ndless/ndless-sdk/tools not found"
+          exit 1
         fi
 
-        # make-prg uses `nspire-tools _zehn_loader_path` and can build/find
-        # zehn_loader via the SDK when nspire-tools resolves SDKROOT correctly.
+        make -C /opt/ndless/ndless-sdk/tools -j"$(nproc)" all
+
+        for bin in nspire-tools genzehn make-prg; do
+          if [ ! -x "/opt/ndless/ndless-sdk/bin/$bin" ]; then
+            echo "✗ ERROR: /opt/ndless/ndless-sdk/bin/$bin not found after tool build"
+            find /opt/ndless/ndless-sdk -maxdepth 4 -name "$bin" -type f | head -20 || true
+            exit 1
+          fi
+          sudo ln -sf "/opt/ndless/ndless-sdk/bin/$bin" "/usr/local/bin/$bin"
+          echo "✓ $bin linked from Ndless SDK"
+        done
     
     - name: Setup nspire compiler symlinks
       run: |
