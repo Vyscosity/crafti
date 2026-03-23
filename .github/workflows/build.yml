@@ -207,21 +207,35 @@ jobs:
           cd /tmp
           
           MAKEPRG_FOUND=0
-          # Try to get make-prg from Ndless repository
-          if wget -q --timeout=10 https://raw.githubusercontent.com/ndless-nspire/ndless/master/bin/make-prg -O make-prg 2>/dev/null; then
-            sudo install -m 755 make-prg /usr/local/bin/
-            echo "✓ make-prg installed from repo"
-            MAKEPRG_FOUND=1
-          fi
+          # Try to get make-prg from Ndless repository - try multiple stable versions
+          for branch_or_tag in "v4.4.0" "v4.5.0" "master"; do
+            echo "Trying to download make-prg from branch/tag: $branch_or_tag"
+            if wget -q --timeout=10 "https://raw.githubusercontent.com/ndless-nspire/ndless/$branch_or_tag/bin/make-prg" -O make-prg 2>/dev/null; then
+              # Verify the downloaded file is not an HTML error page
+              if file make-prg | grep -q "ELF\|executable"; then
+                sudo install -m 755 make-prg /usr/local/bin/
+                echo "✓ make-prg installed from $branch_or_tag"
+                MAKEPRG_FOUND=1
+                break
+              else
+                echo "⚠ Downloaded file from $branch_or_tag is not a binary, skipping..."
+                rm -f make-prg
+              fi
+            fi
+          done
           
           # Build from source if download failed
           if [ $MAKEPRG_FOUND -eq 0 ]; then
-            echo "make-prg not available from repo - building from source..."
+            echo "make-prg binary downloads failed - attempting to build from source..."
             
             # Ensure Ndless source was cloned (from genzehn build, or clone now)
             if [ ! -d /tmp/ndless-src ]; then
               echo "Cloning Ndless repository for make-prg..."
-              git clone --recursive https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
+              # Try to clone a specific stable version first
+              if ! git clone --recursive --depth 1 --branch v4.4.0 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src 2>/dev/null; then
+                echo "⚠ Could not clone v4.4.0, trying master branch..."
+                git clone --recursive --depth 1 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src
+              fi
             fi
             
             # Check multiple possible locations for bin directory
