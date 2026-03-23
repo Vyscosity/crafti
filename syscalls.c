@@ -7,9 +7,6 @@
  * bare-metal cross-compilation environments.
  */
 
-/* Define errno as a global variable without including errno.h */
-int errno = 0;
-
 /* External declarations without relying on system headers */
 typedef int pid_t;
 typedef long off_t;
@@ -32,11 +29,7 @@ struct stat {
     long st_ctime;
 };
 
-/* Define errno values directly */
 #define S_IFCHR 0x2000
-#define ENOSYS  38
-#define EINVAL  22
-#define ENOMEM  12
 
 /* Implement _exit - exit process */
 void _exit(int status) {
@@ -55,7 +48,6 @@ int _write(int file, char *ptr, int len) {
 /* Implement _sbrk - allocate memory from heap */
 void *_sbrk(int incr) {
     (void)incr;
-    errno = ENOMEM;
     return (void *)-1;
 }
 
@@ -68,7 +60,6 @@ int _getpid(void) {
 int _kill(int pid, int sig) {
     (void)pid;
     (void)sig;
-    errno = EINVAL;
     return -1;
 }
 
@@ -121,16 +112,12 @@ int _open(const char *name, int flags, int mode) {
 int _link(const char *old, const char *new) {
     (void)old;
     (void)new;
-    /* EMLINK would be defined as 31 */
-    errno = 31;
     return -1;
 }
 
 /* Implement _unlink - remove file */
 int _unlink(const char *name) {
     (void)name;
-    /* ENOENT would be defined as 2 */
-    errno = 2;
     return -1;
 }
 
@@ -147,7 +134,6 @@ int _stat(const char *file, struct stat *st) {
 int _rename(const char *oldname, const char *newname) {
     (void)oldname;
     (void)newname;
-    errno = ENOSYS;
     return -1;
 }
 
@@ -155,13 +141,11 @@ int _rename(const char *oldname, const char *newname) {
 int _mkdir(const char *path, mode_t mode) {
     (void)path;
     (void)mode;
-    errno = ENOSYS;
     return -1;
 }
 
 /* Implement _chdir - change directory */
 int _chdir(const char *path) {
     (void)path;
-    errno = ENOSYS;
     return -1;
 }

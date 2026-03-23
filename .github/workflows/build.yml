@@ -51,14 +51,22 @@ jobs:
         tar xzf zlib-${ZLIB_VERSION}.tar.gz
         cd zlib-${ZLIB_VERSION}
         
-        # Configure and build for ARM
+        # Configure ARM cross-build and only build libz.a.
+        # Building zlib test/example binaries for bare-metal causes
+        # syscall link errors (_write/_sbrk/_exit, etc.).
+        CHOST=arm-none-eabi \
         CC=arm-none-eabi-gcc \
-        CFLAGS="-mcpu=cortex-a8 -fPIC" \
-        ./configure --prefix="$ARM_ZLIB_PREFIX" \
-          --static
-        
-        make -j$(nproc)
-        sudo make install
+        AR=arm-none-eabi-ar \
+        RANLIB=arm-none-eabi-ranlib \
+        CFLAGS="-mcpu=arm926ej-s -marm -fPIC" \
+        ./configure --prefix="$ARM_ZLIB_PREFIX" --static
+
+        make clean
+        make -j$(nproc) libz.a
+
+        sudo install -d "$ARM_ZLIB_PREFIX/include" "$ARM_ZLIB_PREFIX/lib"
+        sudo install -m 644 zlib.h zconf.h "$ARM_ZLIB_PREFIX/include/"
+        sudo install -m 644 libz.a "$ARM_ZLIB_PREFIX/lib/"
         
         echo "✓ zlib built for ARM at $ARM_ZLIB_PREFIX"
         echo "ARM zlib files:"
