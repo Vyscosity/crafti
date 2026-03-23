@@ -190,10 +190,10 @@ jobs:
         ARM_ZLIB_PREFIX="/opt/arm-zlib"
         
         # Create wrapper for nspire-gcc
-        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-gcc -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-gcc > /dev/null
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-gcc -D_TINSPIRE -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-gcc > /dev/null
         
         # Create wrapper for nspire-g++
-        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-g++ -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-g++ > /dev/null
+        printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-g++ -D_TINSPIRE -I%s/include -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-g++ > /dev/null
         
         # Create wrapper for nspire-ld
         printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-ld -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-ld > /dev/null
