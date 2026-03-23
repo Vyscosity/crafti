@@ -262,6 +262,30 @@ jobs:
         else
           echo "✓ make-prg already available"
         fi
+
+        # Install zehn_loader payload required by make-prg.
+        sudo mkdir -p /usr/local/tools/zehn_loader
+        ZEHN_LOADER_SRC=$(find /opt/ndless /tmp/ndless-src -type f \( -name "zehn_loader_compressed.tns" -o -name "zehn_loader.tns" \) 2>/dev/null | head -n 1)
+
+        if [ -n "$ZEHN_LOADER_SRC" ]; then
+          sudo install -m 644 "$ZEHN_LOADER_SRC" /usr/local/tools/zehn_loader/zehn_loader_compressed.tns
+          echo "✓ zehn_loader installed from local source: $ZEHN_LOADER_SRC"
+        else
+          echo "⚠ Local zehn_loader payload not found, trying download fallback..."
+          wget -q --timeout=20 "https://github.com/ndless-nspire/ndless/raw/master/tools/zehn_loader_compressed.tns" -O /tmp/zehn_loader_compressed.tns || true
+          if [ -s /tmp/zehn_loader_compressed.tns ]; then
+            sudo install -m 644 /tmp/zehn_loader_compressed.tns /usr/local/tools/zehn_loader/zehn_loader_compressed.tns
+            echo "✓ zehn_loader installed from download fallback"
+          fi
+        fi
+
+        if [ ! -f /usr/local/tools/zehn_loader/zehn_loader_compressed.tns ]; then
+          echo "✗ ERROR: zehn_loader payload is missing; make-prg cannot build .tns"
+          find /opt/ndless /tmp/ndless-src -name "zehn_loader*" 2>/dev/null | head -20 || true
+          exit 1
+        fi
+
+        ls -lh /usr/local/tools/zehn_loader/zehn_loader_compressed.tns
     
     - name: Setup nspire compiler symlinks
       run: |
