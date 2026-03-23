@@ -52,9 +52,9 @@ jobs:
         echo "✓ Ndless SDK header found: /opt/ndless/ndless-sdk/include/libndls.h"
         echo "NDLSSDK=/opt/ndless/ndless-sdk" >> $GITHUB_ENV
 
-        # Ensure nspire-tools command exists for scripts like make-prg wrapper.
-        NSPIRE_TOOLS_BIN=$(find /opt/ndless -type f -name nspire-tools 2>/dev/null | head -n 1)
-        if [ -n "$NSPIRE_TOOLS_BIN" ]; then
+        # Ensure nspire-tools command exists for scripts like make-prg.
+        NSPIRE_TOOLS_BIN="/opt/ndless/ndless-sdk/bin/nspire-tools"
+        if [ -f "$NSPIRE_TOOLS_BIN" ]; then
           sudo install -m 755 "$NSPIRE_TOOLS_BIN" /usr/local/bin/nspire-tools
           echo "✓ nspire-tools installed from: $NSPIRE_TOOLS_BIN"
         else
@@ -66,6 +66,10 @@ jobs:
           printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
           printf '%s\n' '  _toolchainpath|toolchainpath)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
           printf '%s\n' '    echo "/opt/ndless/ndless-sdk/toolchain/install/bin"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '  _zehn_loader_path)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    suffix="$2"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    echo "/usr/local/tools/zehn_loader/zehn_loader${suffix}.tns"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
           printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
           printf '%s\n' '  *)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
           printf '%s\n' '    echo "nspire-tools shim: unsupported command \"$1\"" >&2' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
@@ -311,8 +315,17 @@ jobs:
     
     - name: Verify tools
       run: |
+        export PATH="/usr/local/bin:$PATH"
         arm-none-eabi-g++ --version
         test -f /opt/ndless/ndless-sdk/include/libndls.h && echo "✓ libndls.h available from Ndless SDK"
+        if which nspire-tools >/dev/null 2>&1; then
+          NSPIRE_TOOLS=$(command -v nspire-tools)
+          echo "✓ nspire-tools found at: $NSPIRE_TOOLS"
+          nspire-tools path || true
+        else
+          echo "✗ ERROR: nspire-tools not available"
+          exit 1
+        fi
         if which genzehn >/dev/null 2>&1; then
           GENZEHN_BIN=$(command -v genzehn)
           echo "✓ genzehn found at: $GENZEHN_BIN"
@@ -349,6 +362,7 @@ jobs:
     
     - name: Build Crafti Nspire
       run: |
+        export PATH="/usr/local/bin:$PATH"
         # Makefile is at repository root, not in crafti/ subdirectory
         if [ ! -f Makefile ]; then
           echo "✗ ERROR: Makefile not found!"
