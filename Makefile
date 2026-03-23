@@ -23,7 +23,7 @@ all: $(EXE).tns
 	@$(GPP) -std=c++11 $(GCCFLAGS) -c $< -o $@
 
 $(EXE).elf: $(OBJS)
-	+$(LD) $^ -o $@ $(GCCFLAGS) $(LDFLAGS)
+	+$(LD) $^ -o $@ $(LDFLAGS)
 
 $(EXE).tns: $(EXE).elf
 	+$(GENZEHN) --input $^ --output $@.zehn $(ZEHNFLAGS)
