@@ -3,6 +3,8 @@ name: Build Nspire TNS
 on:
   push:
     branches: [ main, master, develop ]
+    tags:
+      - 'v*'
     paths:
       - '**.cpp'
       - '**.h'
@@ -296,7 +298,7 @@ jobs:
         retention-days: 30
     
     - name: Upload to releases
-      if: success()
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: crafti.tns
