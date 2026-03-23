@@ -40,29 +40,30 @@ jobs:
 
     - name: Setup Ndless SDK headers
       run: |
-        sudo rm -rf /opt/ndless
-        sudo git clone --recurse-submodules https://github.com/ndless-nspire/ndless.git /opt/ndless
-        cd /opt/ndless
-        sudo git submodule update --init --recursive
+        NDLESS_ROOT="/tmp/ndless"
+        rm -rf "$NDLESS_ROOT"
+        git clone --recurse-submodules https://github.com/ndless-nspire/ndless.git "$NDLESS_ROOT"
+        cd "$NDLESS_ROOT"
+        git submodule update --init --recursive
 
-        if [ ! -f /opt/ndless/ndless-sdk/include/libndls.h ]; then
+        if [ ! -f "$NDLESS_ROOT/ndless-sdk/include/libndls.h" ]; then
           echo "✗ ERROR: ndless-sdk/include/libndls.h not found"
-          find /opt/ndless -name libndls.h | head -20
+          find "$NDLESS_ROOT" -name libndls.h | head -20
           exit 1
         fi
 
-        if [ ! -f /opt/ndless/ndless-sdk/thirdparty/zlib/configure ]; then
+        if [ ! -f "$NDLESS_ROOT/ndless-sdk/thirdparty/zlib/configure" ]; then
           echo "✗ ERROR: ndless-sdk/thirdparty/zlib/configure not found"
-          find /opt/ndless/ndless-sdk -maxdepth 4 -name configure | head -30
+          find "$NDLESS_ROOT/ndless-sdk" -maxdepth 4 -name configure | head -30
           exit 1
         fi
 
-        echo "✓ Ndless SDK header found: /opt/ndless/ndless-sdk/include/libndls.h"
+        echo "✓ Ndless SDK header found: $NDLESS_ROOT/ndless-sdk/include/libndls.h"
         echo "✓ Ndless thirdparty zlib configure found"
-        echo "NDLSSDK=/opt/ndless/ndless-sdk" >> $GITHUB_ENV
+        echo "NDLSSDK=$NDLESS_ROOT/ndless-sdk" >> $GITHUB_ENV
 
         # Ensure nspire-tools command exists for scripts like make-prg.
-        NSPIRE_TOOLS_BIN="/opt/ndless/ndless-sdk/bin/nspire-tools"
+        NSPIRE_TOOLS_BIN="$NDLESS_ROOT/ndless-sdk/bin/nspire-tools"
         if [ -f "$NSPIRE_TOOLS_BIN" ]; then
           sudo ln -sf "$NSPIRE_TOOLS_BIN" /usr/local/bin/nspire-tools
           echo "✓ nspire-tools symlinked to: $NSPIRE_TOOLS_BIN"
@@ -142,27 +143,30 @@ jobs:
         echo "Building and installing Ndless SDK tools (required for .tns output)..."
         export PATH="/usr/local/bin:$PATH"
 
-        if [ ! -d /opt/ndless/ndless-sdk/tools ]; then
-          echo "✗ ERROR: /opt/ndless/ndless-sdk/tools not found"
+        if [ ! -d "$NDLSSDK/tools" ]; then
+          echo "✗ ERROR: $NDLSSDK/tools not found"
           exit 1
         fi
 
-        make -C /opt/ndless/ndless-sdk/tools -j"$(nproc)" all
+        make -C "$NDLSSDK/tools" -j"$(nproc)" all
 
         for bin in nspire-tools genzehn make-prg; do
-          if [ ! -x "/opt/ndless/ndless-sdk/bin/$bin" ]; then
-            echo "✗ ERROR: /opt/ndless/ndless-sdk/bin/$bin not found after tool build"
-            find /opt/ndless/ndless-sdk -maxdepth 4 -name "$bin" -type f | head -20 || true
+          if [ ! -x "$NDLSSDK/bin/$bin" ]; then
+            echo "✗ ERROR: $NDLSSDK/bin/$bin not found after tool build"
+            find "$NDLSSDK" -maxdepth 4 -name "$bin" -type f | head -20 || true
             exit 1
           fi
-          sudo ln -sf "/opt/ndless/ndless-sdk/bin/$bin" "/usr/local/bin/$bin"
+          sudo ln -sf "$NDLSSDK/bin/$bin" "/usr/local/bin/$bin"
           echo "✓ $bin linked from Ndless SDK"
         done
     
     - name: Setup nspire compiler symlinks
       run: |
         ARM_ZLIB_PREFIX="/opt/arm-zlib"
-        NDLSSDK="/opt/ndless/ndless-sdk"
+        if [ -z "$NDLSSDK" ]; then
+          echo "✗ ERROR: NDLSSDK env var is not set"
+          exit 1
+        fi
         
         # Create wrapper for nspire-gcc
         printf '#!/bin/bash\nexec /usr/bin/arm-none-eabi-gcc -D_TINSPIRE -I%s/include -I%s/include -I%s/include/freetype2 -L%s/lib "$@"\n' "$ARM_ZLIB_PREFIX" "$NDLSSDK" "$NDLSSDK" "$ARM_ZLIB_PREFIX" | sudo tee /usr/local/bin/nspire-gcc > /dev/null
@@ -185,7 +189,7 @@ jobs:
       run: |
         export PATH="/usr/local/bin:$PATH"
         arm-none-eabi-g++ --version
-        test -f /opt/ndless/ndless-sdk/include/libndls.h && echo "✓ libndls.h available from Ndless SDK"
+        test -f "$NDLSSDK/include/libndls.h" && echo "✓ libndls.h available from Ndless SDK"
         if which nspire-tools >/dev/null 2>&1; then
           NSPIRE_TOOLS=$(command -v nspire-tools)
           echo "✓ nspire-tools found at: $NSPIRE_TOOLS"
