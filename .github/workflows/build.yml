@@ -4,10 +4,11 @@ on:
   push:
     branches: [ main, master, develop ]
     paths:
-      - 'crafti/**.cpp'
-      - 'crafti/**.h'
-      - 'crafti/Makefile'
+      - '**.cpp'
+      - '**.h'
+      - 'Makefile'
       - '.github/workflows/build.yml'
+      - 'nGL/**'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -183,11 +184,12 @@ jobs:
         echo "Repository contents:"
         ls -la
         
-        if [ -d crafti ]; then
-          echo "✓ crafti directory found"
-          ls -la crafti/ | head -20
+        if [ -f Makefile ]; then
+          echo "✓ Makefile found at root"
+          echo "Repository structure:"
+          ls -la | head -30
         else
-          echo "✗ ERROR: crafti directory not found!"
+          echo "✗ ERROR: Makefile not found!"
           echo ""
           echo "Looking for Makefile files:"
           find . -maxdepth 3 -name Makefile
@@ -196,13 +198,11 @@ jobs:
     
     - name: Build Crafti Nspire
       run: |
-        # Navigate to crafti directory (where Makefile is)
-        if [ ! -d crafti ]; then
-          echo "✗ ERROR: crafti directory not found!"
+        # Makefile is at repository root, not in crafti/ subdirectory
+        if [ ! -f Makefile ]; then
+          echo "✗ ERROR: Makefile not found!"
           exit 1
         fi
-        
-        cd crafti
         
         # Check if we have the necessary tools
         if ! which genzehn >/dev/null 2>&1; then
@@ -231,14 +231,14 @@ jobs:
       with:
         name: crafti-build
         path: |
-          crafti/crafti.tns
-          crafti/crafti.elf
+          crafti.tns
+          crafti.elf
         retention-days: 30
     
     - name: Upload to releases
       if: success()
       uses: softprops/action-gh-release@v1
       with:
-        files: crafti/crafti.tns
+        files: crafti.tns
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
