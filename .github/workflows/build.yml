@@ -80,6 +80,7 @@ jobs:
         if ! which genzehn >/dev/null 2>&1; then
           echo "Installing genzehn..."
           cd /tmp
+          GENZEHN_INSTALLED=0
           
           for url in \
             "https://github.com/ndless-nspire/ndless/releases/download/v4.5.2/genzehn" \
@@ -88,11 +89,29 @@ jobs:
             if wget -q --timeout=10 "$url" -O genzehn 2>/dev/null && file genzehn | grep -q "ELF\|executable"; then
               sudo install -m 755 genzehn /usr/local/bin/
               echo "✓ genzehn installed"
+              GENZEHN_INSTALLED=1
               break
             fi
           done
           
-          if ! which genzehn >/dev/null 2>&1; then
+          # Try building from source if binary download failed
+          if [ $GENZEHN_INSTALLED -eq 0 ]; then
+            echo "⚠ Pre-built genzehn not available, attempting to build from source..."
+            if [ ! -d /tmp/ndless-src ]; then
+              git clone --depth 1 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src 2>/dev/null || true
+            fi
+            
+            if [ -d /tmp/ndless-src ]; then
+              GENZEHN_SRC=$(find /tmp/ndless-src -type f -name "genzehn.cpp" 2>/dev/null | head -n 1)
+              if [ -n "$GENZEHN_SRC" ]; then
+                GENZEHN_DIR=$(dirname "$GENZEHN_SRC")
+                echo "Found genzehn source at: $GENZEHN_SRC"
+                (cd "$GENZEHN_DIR" && make && sudo install -m 755 genzehn /usr/local/bin/ 2>/dev/null) && GENZEHN_INSTALLED=1 || true
+              fi
+            fi
+          fi
+          
+          if [ $GENZEHN_INSTALLED -eq 0 ]; then
             echo "⚠ WARNING: genzehn not available - .tns conversion skipped"
           fi
         else
@@ -103,16 +122,35 @@ jobs:
         if ! which make-prg >/dev/null 2>&1; then
           echo "Installing make-prg..."
           cd /tmp
+          MAKEPRG_INSTALLED=0
           
           for branch in "v4.4.0" "v4.5.0" "master"; do
             if wget -q --timeout=10 "https://raw.githubusercontent.com/ndless-nspire/ndless/$branch/bin/make-prg" -O make-prg 2>/dev/null && file make-prg | grep -q "ELF\|executable"; then
               sudo install -m 755 make-prg /usr/local/bin/
               echo "✓ make-prg installed"
+              MAKEPRG_INSTALLED=1
               break
             fi
           done
           
-          if ! which make-prg >/dev/null 2>&1; then
+          # Try building from source if binary download failed
+          if [ $MAKEPRG_INSTALLED -eq 0 ]; then
+            echo "⚠ Pre-built make-prg not available, attempting to build from source..."
+            if [ ! -d /tmp/ndless-src ]; then
+              git clone --depth 1 https://github.com/ndless-nspire/ndless.git /tmp/ndless-src 2>/dev/null || true
+            fi
+            
+            if [ -d /tmp/ndless-src ]; then
+              MAKEPRG_SRC=$(find /tmp/ndless-src -type f -name "make-prg.c" 2>/dev/null | head -n 1)
+              if [ -n "$MAKEPRG_SRC" ]; then
+                MAKEPRG_DIR=$(dirname "$MAKEPRG_SRC")
+                echo "Found make-prg source at: $MAKEPRG_SRC"
+                (cd "$MAKEPRG_DIR" && gcc -o make-prg make-prg.c && sudo install -m 755 make-prg /usr/local/bin/ 2>/dev/null) && MAKEPRG_INSTALLED=1 || true
+              fi
+            fi
+          fi
+          
+          if [ $MAKEPRG_INSTALLED -eq 0 ]; then
             echo "⚠ WARNING: make-prg not available - .tns packaging skipped"
           fi
         else
