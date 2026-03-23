@@ -264,13 +264,17 @@ jobs:
         arm-none-eabi-g++ --version
         test -f /opt/ndless/ndless-sdk/include/libndls.h && echo "✓ libndls.h available from Ndless SDK"
         if which genzehn >/dev/null 2>&1; then
-          genzehn --version
+          GENZEHN_BIN=$(command -v genzehn)
+          echo "✓ genzehn found at: $GENZEHN_BIN"
+          file "$GENZEHN_BIN"
         else
           echo "✗ ERROR: genzehn not available"
           exit 1
         fi
         if which make-prg >/dev/null 2>&1; then
-          make-prg --version
+          MAKEPRG_BIN=$(command -v make-prg)
+          echo "✓ make-prg found at: $MAKEPRG_BIN"
+          file "$MAKEPRG_BIN"
         else
           echo "✗ ERROR: make-prg not available"
           exit 1
