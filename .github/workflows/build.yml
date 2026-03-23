@@ -59,21 +59,19 @@ jobs:
           echo "✓ nspire-tools installed from: $NSPIRE_TOOLS_BIN"
         else
           echo "⚠ nspire-tools script not found in clone; creating compatibility shim"
-          sudo tee /usr/local/bin/nspire-tools > /dev/null << 'EOF'
-#!/bin/sh
-case "$1" in
-  path)
-    echo "/opt/ndless/ndless-sdk"
-    ;;
-  _toolchainpath|toolchainpath)
-    echo "/opt/ndless/ndless-sdk/toolchain/install/bin"
-    ;;
-  *)
-    echo "nspire-tools shim: unsupported command '$1'" >&2
-    exit 1
-    ;;
-esac
-EOF
+          printf '%s\n' '#!/bin/sh' | sudo tee /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' 'case "$1" in' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '  path)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    echo "/opt/ndless/ndless-sdk"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '  _toolchainpath|toolchainpath)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    echo "/opt/ndless/ndless-sdk/toolchain/install/bin"' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '  *)' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    echo "nspire-tools shim: unsupported command \"$1\"" >&2' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    exit 1' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' '    ;;' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
+          printf '%s\n' 'esac' | sudo tee -a /usr/local/bin/nspire-tools > /dev/null
           sudo chmod +x /usr/local/bin/nspire-tools
           echo "✓ nspire-tools compatibility shim installed"
         fi
