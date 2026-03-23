@@ -118,7 +118,7 @@ jobs:
     
     - name: Install nspire-tools
       run: |
-        echo "Installing nspire-tools (optional)..."
+        echo "Installing nspire-tools (required for .tns output)..."
         
         # Install genzehn from pre-built binaries
         if ! which genzehn >/dev/null 2>&1; then
@@ -138,7 +138,17 @@ jobs:
             fi
           done
           
-          # Try building from source if binary download failed
+          # Try using tools from cloned Ndless tree first
+          if [ $GENZEHN_INSTALLED -eq 0 ] && [ -d /opt/ndless ]; then
+            GENZEHN_BIN=$(find /opt/ndless -type f -name genzehn 2>/dev/null | head -n 1)
+            if [ -n "$GENZEHN_BIN" ] && file "$GENZEHN_BIN" | grep -q "ELF\|executable"; then
+              sudo install -m 755 "$GENZEHN_BIN" /usr/local/bin/genzehn
+              echo "✓ genzehn installed from /opt/ndless"
+              GENZEHN_INSTALLED=1
+            fi
+          fi
+
+          # Try building from source if binary discovery failed
           if [ $GENZEHN_INSTALLED -eq 0 ]; then
             echo "⚠ Pre-built genzehn not available, attempting to build from source..."
             if [ ! -d /tmp/ndless-src ]; then
@@ -156,7 +166,8 @@ jobs:
           fi
           
           if [ $GENZEHN_INSTALLED -eq 0 ]; then
-            echo "⚠ WARNING: genzehn not available - .tns conversion skipped"
+            echo "✗ ERROR: genzehn not available; cannot produce .tns"
+            exit 1
           fi
         else
           echo "✓ genzehn already available"
@@ -177,7 +188,17 @@ jobs:
             fi
           done
           
-          # Try building from source if binary download failed
+          # Try using tools from cloned Ndless tree first
+          if [ $MAKEPRG_INSTALLED -eq 0 ] && [ -d /opt/ndless ]; then
+            MAKEPRG_BIN=$(find /opt/ndless -type f -name make-prg 2>/dev/null | head -n 1)
+            if [ -n "$MAKEPRG_BIN" ] && file "$MAKEPRG_BIN" | grep -q "ELF\|executable"; then
+              sudo install -m 755 "$MAKEPRG_BIN" /usr/local/bin/make-prg
+              echo "✓ make-prg installed from /opt/ndless"
+              MAKEPRG_INSTALLED=1
+            fi
+          fi
+
+          # Try building from source if binary discovery failed
           if [ $MAKEPRG_INSTALLED -eq 0 ]; then
             echo "⚠ Pre-built make-prg not available, attempting to build from source..."
             if [ ! -d /tmp/ndless-src ]; then
@@ -195,7 +216,8 @@ jobs:
           fi
           
           if [ $MAKEPRG_INSTALLED -eq 0 ]; then
-            echo "⚠ WARNING: make-prg not available - .tns packaging skipped"
+            echo "✗ ERROR: make-prg not available; cannot produce .tns"
+            exit 1
           fi
         else
           echo "✓ make-prg already available"
@@ -230,12 +252,14 @@ jobs:
         if which genzehn >/dev/null 2>&1; then
           genzehn --version
         else
-          echo "⚠ genzehn not available"
+          echo "✗ ERROR: genzehn not available"
+          exit 1
         fi
         if which make-prg >/dev/null 2>&1; then
           make-prg --version
         else
-          echo "⚠ make-prg not available"
+          echo "✗ ERROR: make-prg not available"
+          exit 1
         fi
     
     - name: Verify repository structure
@@ -266,25 +290,15 @@ jobs:
         # Ensure no stale objects from mismatched toolchains remain.
         find . -name '*.o' -delete
         
-        # Check if we have the necessary tools
-        if ! which genzehn >/dev/null 2>&1; then
-          echo "⚠ WARNING: genzehn not available - generating .elf only"
-          make clean
-          make crafti.elf || exit 1
-          exit 0
-        fi
-        
-        if ! which make-prg >/dev/null 2>&1; then
-          echo "⚠ WARNING: make-prg not available - generating .elf only"
-          make clean
-          make crafti.elf || exit 1
-          exit 0
-        fi
-        
-        # Full build with .tns generation
-        echo "Building complete Nspire package..."
+        # Full build with mandatory .tns generation
+        echo "Building Nspire package (.tns required)..."
         make clean
         make -j$(nproc) || exit 1
+        if [ ! -f crafti.tns ]; then
+          echo "✗ ERROR: crafti.tns was not generated"
+          ls -lh crafti.elf || true
+          exit 1
+        fi
         ls -lh crafti.tns
     
     - name: Upload build artifact
