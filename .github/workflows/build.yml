@@ -160,7 +160,14 @@ jobs:
               if [ -n "$GENZEHN_SRC" ]; then
                 GENZEHN_DIR=$(dirname "$GENZEHN_SRC")
                 echo "Found genzehn source at: $GENZEHN_SRC"
-                (cd "$GENZEHN_DIR" && make && sudo install -m 755 genzehn /usr/local/bin/ 2>/dev/null) && GENZEHN_INSTALLED=1 || true
+                if (cd "$GENZEHN_DIR" && make); then
+                  GENZEHN_BUILT=$(find /tmp/ndless-src -type f -name genzehn 2>/dev/null | xargs -r -I{} sh -c 'file "{}" | grep -q "ELF\|executable" && echo "{}"' | head -n 1)
+                  if [ -n "$GENZEHN_BUILT" ]; then
+                    sudo install -m 755 "$GENZEHN_BUILT" /usr/local/bin/genzehn
+                    echo "✓ genzehn installed from source build: $GENZEHN_BUILT"
+                    GENZEHN_INSTALLED=1
+                  fi
+                fi
               fi
             fi
           fi
@@ -210,7 +217,14 @@ jobs:
               if [ -n "$MAKEPRG_SRC" ]; then
                 MAKEPRG_DIR=$(dirname "$MAKEPRG_SRC")
                 echo "Found make-prg source at: $MAKEPRG_SRC"
-                (cd "$MAKEPRG_DIR" && gcc -o make-prg make-prg.c && sudo install -m 755 make-prg /usr/local/bin/ 2>/dev/null) && MAKEPRG_INSTALLED=1 || true
+                if (cd "$MAKEPRG_DIR" && gcc -o make-prg make-prg.c); then
+                  MAKEPRG_BUILT=$(find /tmp/ndless-src -type f -name make-prg 2>/dev/null | xargs -r -I{} sh -c 'file "{}" | grep -q "ELF\|executable" && echo "{}"' | head -n 1)
+                  if [ -n "$MAKEPRG_BUILT" ]; then
+                    sudo install -m 755 "$MAKEPRG_BUILT" /usr/local/bin/make-prg
+                    echo "✓ make-prg installed from source build: $MAKEPRG_BUILT"
+                    MAKEPRG_INSTALLED=1
+                  fi
+                fi
               fi
             fi
           fi
