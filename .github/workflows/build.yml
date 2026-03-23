@@ -36,42 +36,61 @@ jobs:
           wget \
           unzip
     
+    - name: Build zlib for ARM
+      run: |
+        echo "Building zlib for ARM (arm-none-eabi) target..."
+        
+        # Create install directory for ARM zlib
+        ARM_ZLIB_PREFIX="/opt/arm-zlib"
+        sudo mkdir -p "$ARM_ZLIB_PREFIX"
+        
+        # Download zlib source
+        cd /tmp
+        ZLIB_VERSION="1.2.13"
+        wget -q https://github.com/madler/zlib/archive/refs/tags/v${ZLIB_VERSION}.tar.gz -O zlib-${ZLIB_VERSION}.tar.gz
+        tar xzf zlib-${ZLIB_VERSION}.tar.gz
+        cd zlib-${ZLIB_VERSION}
+        
+        # Configure and build for ARM
+        CC=arm-none-eabi-gcc \
+        CFLAGS="-mcpu=cortex-a8 -fPIC" \
+        ./configure --prefix="$ARM_ZLIB_PREFIX" \
+          --static
+        
+        make -j$(nproc)
+        sudo make install
+        
+        echo "✓ zlib built for ARM at $ARM_ZLIB_PREFIX"
+        echo "ARM zlib files:"
+        ls -la "$ARM_ZLIB_PREFIX/lib/" || true
+        ls -la "$ARM_ZLIB_PREFIX/include/" || true
+        
+        # Export paths for subsequent builds
+        echo "ARM_ZLIB_PREFIX=$ARM_ZLIB_PREFIX" >> $GITHUB_ENV
+        echo "CFLAGS=-I$ARM_ZLIB_PREFIX/include" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$ARM_ZLIB_PREFIX/lib" >> $GITHUB_ENV
+    
     - name: Verify build tools and libraries
       run: |
         echo "Checking build tools and libraries:"
-        g++ --version || echo "⚠ g++ not found"
-        gcc --version || echo "⚠ gcc not found"
+        arm-none-eabi-gcc --version || echo "⚠ arm-none-eabi-gcc not found"
+        arm-none-eabi-g++ --version || echo "⚠ arm-none-eabi-g++ not found"
         
         echo ""
-        echo "Checking for Boost libraries:"
-        find /usr -name "*boost_program_options*" 2>/dev/null | head -20 || echo "⚠ Boost libraries not found"
-        
-        echo ""
-        echo "Checking for zlib:"
-        find /usr -name "*z.so*" -o -name "*z.a" 2>/dev/null | head -20 || echo "⚠ zlib not found"
+        echo "Checking for ARM zlib:"
+        ARM_ZLIB_PREFIX="/opt/arm-zlib"
+        if [ -f "$ARM_ZLIB_PREFIX/include/zlib.h" ]; then
+          echo "✓ zlib.h found at $ARM_ZLIB_PREFIX/include/zlib.h"
+          ls -la "$ARM_ZLIB_PREFIX/lib/" | grep -E "\.a|\.so" || echo "⚠ No zlib libraries found"
+        else
+          echo "✗ ERROR: zlib.h not found!"
+          find "$ARM_ZLIB_PREFIX" -name "zlib.h" 2>/dev/null || echo "No zlib.h found anywhere"
+          exit 1
+        fi
         
         echo ""
         echo "Installed package details:"
-        dpkg -l | grep -E "libboost-program-options|zlib1g" || echo "⚠ Some packages may be missing"
-        
-        echo ""
-        echo "Testing g++ compilation with Boost and zlib:"
-        cat > /tmp/test.cpp << 'EOF'
-        #include <boost/program_options.hpp>
-        #include <zlib.h>
-        int main() {
-          z_const char* msg = "test";
-          (void)msg;
-          return 0;
-        }
-        EOF
-        
-        if g++ -std=c++11 /tmp/test.cpp -lboost_program_options -lz -o /tmp/test 2>&1; then
-          echo "✓ Test compilation succeeded"
-          /tmp/test && echo "✓ Test binary executed successfully"
-        else
-          echo "✗ WARNING: Test compilation failed - see error above"
-        fi
+        dpkg -l | grep -E "zlib|boost" || echo "⚠ Some packages may be missing"
     
     - name: Install nspire-tools
       run: |
@@ -160,10 +179,48 @@ jobs:
     
     - name: Setup nspire compiler symlinks
       run: |
-        sudo ln -sf /usr/bin/arm-none-eabi-gcc /usr/local/bin/nspire-gcc
-        sudo ln -sf /usr/bin/arm-none-eabi-g++ /usr/local/bin/nspire-g++
-        sudo ln -sf /usr/bin/arm-none-eabi-ld /usr/local/bin/nspire-ld
-        sudo ln -sf /usr/bin/arm-none-eabi-as /usr/local/bin/nspire-as
+        # Create wrapper scripts for ARM compiler that include zlib paths
+        ARM_ZLIB_PREFIX="/opt/arm-zlib"
+        
+        # Create wrapper for nspire-gcc
+        sudo tee /usr/local/bin/nspire-gcc > /dev/null << 'EOF'
+#!/bin/bash
+ARM_ZLIB_PREFIX="/opt/arm-zlib"
+exec /usr/bin/arm-none-eabi-gcc \
+  -I${ARM_ZLIB_PREFIX}/include \
+  -L${ARM_ZLIB_PREFIX}/lib \
+  "$@"
+EOF
+        
+        # Create wrapper for nspire-g++
+        sudo tee /usr/local/bin/nspire-g++ > /dev/null << 'EOF'
+#!/bin/bash
+ARM_ZLIB_PREFIX="/opt/arm-zlib"
+exec /usr/bin/arm-none-eabi-g++ \
+  -I${ARM_ZLIB_PREFIX}/include \
+  -L${ARM_ZLIB_PREFIX}/lib \
+  "$@"
+EOF
+        
+        # Create wrapper for nspire-ld (linker)
+        sudo tee /usr/local/bin/nspire-ld > /dev/null << 'EOF'
+#!/bin/bash
+ARM_ZLIB_PREFIX="/opt/arm-zlib"
+exec /usr/bin/arm-none-eabi-ld \
+  -L${ARM_ZLIB_PREFIX}/lib \
+  "$@"
+EOF
+        
+        # Create wrapper for nspire-as (assembler)
+        sudo tee /usr/local/bin/nspire-as > /dev/null << 'EOF'
+#!/bin/bash
+exec /usr/bin/arm-none-eabi-as "$@"
+EOF
+        
+        # Make all wrappers executable
+        sudo chmod +x /usr/local/bin/nspire-*
+        
+        echo "✓ Compiler wrappers created with ARM zlib paths"
     
     - name: Verify tools
       run: |
