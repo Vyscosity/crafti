@@ -1,28 +1,46 @@
 /*
  * Minimal syscalls stubs for bare-metal ARM newlib cross-compilation
  * Required for linking with arm-none-eabi toolchain on Nspire TI calculator
+ * 
+ * These are minimal implementations to satisfy linker requirements.
+ * No standard library headers are included to ensure compatibility with
+ * bare-metal cross-compilation environments.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <unistd.h>
+/* Define errno as a global variable without including errno.h */
+int errno = 0;
 
-/* Implement _kill - send signal to process */
-int _kill(int pid, int sig) {
-    (void)pid;
-    (void)sig;
-    errno = EINVAL;
-    return -1;
-}
+/* External declarations without relying on system headers */
+typedef int pid_t;
+typedef long off_t;
+typedef unsigned int mode_t;
+typedef int ptrdiff_t;
 
-/* Implement _getpid - get process ID */
-int _getpid(void) {
-    return 1;
-}
+struct stat {
+    unsigned long st_dev;
+    unsigned long st_ino;
+    unsigned int st_mode;
+    unsigned int st_nlink;
+    unsigned int st_uid;
+    unsigned int st_gid;
+    unsigned long st_rdev;
+    long st_size;
+    long st_blksize;
+    long st_blocks;
+    long st_atime;
+    long st_mtime;
+    long st_ctime;
+};
+
+/* Define errno values directly */
+#define S_IFCHR 0x2000
+#define ENOSYS  38
+#define EINVAL  22
+#define ENOMEM  12
 
 /* Implement _exit - exit process */
 void _exit(int status) {
+    (void)status;
     while (1) {}
 }
 
@@ -34,10 +52,32 @@ int _write(int file, char *ptr, int len) {
     return len;
 }
 
-/* Implement _close - close file */
-int _close(int file) {
-    (void)file;
+/* Implement _sbrk - allocate memory from heap */
+void *_sbrk(int incr) {
+    (void)incr;
+    errno = ENOMEM;
+    return (void *)-1;
+}
+
+/* Implement _getpid - get process ID */
+int _getpid(void) {
+    return 1;
+}
+
+/* Implement _kill - send signal to process */
+int _kill(int pid, int sig) {
+    (void)pid;
+    (void)sig;
+    errno = EINVAL;
     return -1;
+}
+
+/* Implement _lseek - seek in file */
+off_t _lseek(int file, off_t ptr, int dir) {
+    (void)file;
+    (void)ptr;
+    (void)dir;
+    return 0;
 }
 
 /* Implement _fstat - get file status */
@@ -55,21 +95,10 @@ int _isatty(int file) {
     return 1;  /* Assume we're always a "terminal" on bare-metal */
 }
 
-/* Implement _lseek - seek in file */
-long _lseek(int file, long ptr, int dir) {
+/* Implement _close - close file */
+int _close(int file) {
     (void)file;
-    (void)ptr;
-    (void)dir;
-    return 0;
-}
-
-/* Implement _sbrk - allocate memory from heap */
-void *_sbrk(int incr) {
-    /* On bare-metal targets without a linker script providing _end,
-     * just return an error. Most embedded systems don't use malloc anyway. */
-    (void)incr;
-    errno = ENOMEM;
-    return (void *)-1;
+    return -1;
 }
 
 /* Implement _read - read from file */
@@ -92,14 +121,16 @@ int _open(const char *name, int flags, int mode) {
 int _link(const char *old, const char *new) {
     (void)old;
     (void)new;
-    errno = EMLINK;
+    /* EMLINK would be defined as 31 */
+    errno = 31;
     return -1;
 }
 
 /* Implement _unlink - remove file */
 int _unlink(const char *name) {
     (void)name;
-    errno = ENOENT;
+    /* ENOENT would be defined as 2 */
+    errno = 2;
     return -1;
 }
 
