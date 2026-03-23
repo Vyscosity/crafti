@@ -51,6 +51,34 @@ jobs:
 
         echo "✓ Ndless SDK header found: /opt/ndless/ndless-sdk/include/libndls.h"
         echo "NDLSSDK=/opt/ndless/ndless-sdk" >> $GITHUB_ENV
+
+        # Ensure nspire-tools command exists for scripts like make-prg wrapper.
+        NSPIRE_TOOLS_BIN=$(find /opt/ndless -type f -name nspire-tools 2>/dev/null | head -n 1)
+        if [ -n "$NSPIRE_TOOLS_BIN" ]; then
+          sudo install -m 755 "$NSPIRE_TOOLS_BIN" /usr/local/bin/nspire-tools
+          echo "✓ nspire-tools installed from: $NSPIRE_TOOLS_BIN"
+        else
+          echo "⚠ nspire-tools script not found in clone; creating compatibility shim"
+          sudo tee /usr/local/bin/nspire-tools > /dev/null << 'EOF'
+#!/bin/sh
+case "$1" in
+  path)
+    echo "/opt/ndless/ndless-sdk"
+    ;;
+  _toolchainpath|toolchainpath)
+    echo "/opt/ndless/ndless-sdk/toolchain/install/bin"
+    ;;
+  *)
+    echo "nspire-tools shim: unsupported command '$1'" >&2
+    exit 1
+    ;;
+esac
+EOF
+          sudo chmod +x /usr/local/bin/nspire-tools
+          echo "✓ nspire-tools compatibility shim installed"
+        fi
+
+        echo "nspire-tools path -> $(nspire-tools path)"
     
     - name: Build zlib for ARM
       run: |
