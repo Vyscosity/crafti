@@ -1,15 +1,18 @@
 /*
  * Minimal syscalls stubs for bare-metal ARM newlib cross-compilation
- * Required for linking with arm-none-eabi toolchain
+ * Required for linking with arm-none-eabi toolchain on Nspire TI calculator
  */
 
+#include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
 
 /* Implement _kill - send signal to process */
 int _kill(int pid, int sig) {
-    errno = ENOSYS;
+    (void)pid;
+    (void)sig;
+    errno = EINVAL;
     return -1;
 }
 
@@ -61,17 +64,12 @@ long _lseek(int file, long ptr, int dir) {
 }
 
 /* Implement _sbrk - allocate memory from heap */
-extern char _end;  /* Symbol provided by linker script */
-
-static char *heap_end = &_end;
-
 void *_sbrk(int incr) {
-    char *prev_heap_end;
-
-    prev_heap_end = heap_end;
-    heap_end += incr;
-
-    return (void *)prev_heap_end;
+    /* On bare-metal targets without a linker script providing _end,
+     * just return an error. Most embedded systems don't use malloc anyway. */
+    (void)incr;
+    errno = ENOMEM;
+    return (void *)-1;
 }
 
 /* Implement _read - read from file */
