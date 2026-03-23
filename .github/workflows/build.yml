@@ -178,8 +178,30 @@ jobs:
           echo "⚠ make-prg not available"
         fi
     
+    - name: Verify repository structure
+      run: |
+        echo "Repository contents:"
+        ls -la
+        
+        if [ -d crafti ]; then
+          echo "✓ crafti directory found"
+          ls -la crafti/ | head -20
+        else
+          echo "✗ ERROR: crafti directory not found!"
+          echo ""
+          echo "Looking for Makefile files:"
+          find . -maxdepth 3 -name Makefile
+          exit 1
+        fi
+    
     - name: Build Crafti Nspire
       run: |
+        # Navigate to crafti directory (where Makefile is)
+        if [ ! -d crafti ]; then
+          echo "✗ ERROR: crafti directory not found!"
+          exit 1
+        fi
+        
         cd crafti
         
         # Check if we have the necessary tools
