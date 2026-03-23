@@ -18,6 +18,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NDLESS_ROOT: /tmp/ndless
+      NDLSSDK: /tmp/ndless/ndless-sdk
+      ARM_ZLIB_PREFIX: /opt/arm-zlib
     
     steps:
     - uses: actions/checkout@v4
@@ -40,7 +44,6 @@ jobs:
 
     - name: Setup Ndless SDK headers
       run: |
-        NDLESS_ROOT="/tmp/ndless"
         rm -rf "$NDLESS_ROOT"
         git clone --recurse-submodules https://github.com/ndless-nspire/ndless.git "$NDLESS_ROOT"
         cd "$NDLESS_ROOT"
@@ -60,7 +63,7 @@ jobs:
 
         echo "✓ Ndless SDK header found: $NDLESS_ROOT/ndless-sdk/include/libndls.h"
         echo "✓ Ndless thirdparty zlib configure found"
-        echo "NDLSSDK=$NDLESS_ROOT/ndless-sdk" >> $GITHUB_ENV
+        echo "NDLSSDK=$NDLSSDK" >> $GITHUB_ENV
 
         # Ensure nspire-tools command exists for scripts like make-prg.
         NSPIRE_TOOLS_BIN="$NDLESS_ROOT/ndless-sdk/bin/nspire-tools"
@@ -77,9 +80,8 @@ jobs:
     - name: Build zlib for ARM
       run: |
         echo "Building zlib for ARM (arm-none-eabi) target..."
-        
+
         # Create install directory for ARM zlib
-        ARM_ZLIB_PREFIX="/opt/arm-zlib"
         sudo mkdir -p "$ARM_ZLIB_PREFIX"
         
         # Download zlib source
@@ -110,11 +112,6 @@ jobs:
         echo "ARM zlib files:"
         ls -la "$ARM_ZLIB_PREFIX/lib/" || true
         ls -la "$ARM_ZLIB_PREFIX/include/" || true
-        
-        # Export paths for subsequent builds
-        echo "ARM_ZLIB_PREFIX=$ARM_ZLIB_PREFIX" >> $GITHUB_ENV
-        echo "CFLAGS=-I$ARM_ZLIB_PREFIX/include" >> $GITHUB_ENV
-        echo "LDFLAGS=-L$ARM_ZLIB_PREFIX/lib" >> $GITHUB_ENV
     
     - name: Verify build tools and libraries
       run: |
@@ -124,7 +121,6 @@ jobs:
         
         echo ""
         echo "Checking for ARM zlib:"
-        ARM_ZLIB_PREFIX="/opt/arm-zlib"
         if [ -f "$ARM_ZLIB_PREFIX/include/zlib.h" ]; then
           echo "✓ zlib.h found at $ARM_ZLIB_PREFIX/include/zlib.h"
           ls -la "$ARM_ZLIB_PREFIX/lib/" | grep -E "\.a|\.so" || echo "⚠ No zlib libraries found"
@@ -172,7 +168,6 @@ jobs:
     
     - name: Setup nspire compiler symlinks
       run: |
-        ARM_ZLIB_PREFIX="/opt/arm-zlib"
         if [ -z "$NDLSSDK" ]; then
           echo "✗ ERROR: NDLSSDK env var is not set"
           exit 1
