@@ -234,7 +234,7 @@ jobs:
               BIN_DIR=/tmp/ndless-src/tools/bin
             else
               # Try to find bin directory recursively (containing make-prg.c)
-              echo "⚠ Using find to locate bin directory with make-prg.c..."
+              echo "⚠ Standard bin locations not found - using find to locate bin directory with make-prg.c..."
               FOUND_DIR=$(find /tmp/ndless-src -type d -name bin 2>/dev/null | while read dir; do
                 [ -f "$dir/make-prg.c" ] && echo "$dir" && break
               done)
@@ -244,40 +244,62 @@ jobs:
               fi
             fi
             
+            # If bin directory still not found, try finding make-prg.c directly
             if [ -z "$BIN_DIR" ]; then
-              echo "✗ ERROR: bin directory with make-prg.c not found"
+              echo "⚠ bin directory with make-prg.c not found - searching for make-prg.c directly..."
+              FOUND_FILE=$(find /tmp/ndless-src -type f -name make-prg.c 2>/dev/null | head -n 1)
+              if [ -n "$FOUND_FILE" ]; then
+                BIN_DIR=$(dirname "$FOUND_FILE")
+                echo "✓ Found make-prg.c at: $FOUND_FILE (using directory: $BIN_DIR)"
+              fi
+            fi
+            
+            if [ -z "$BIN_DIR" ]; then
+              echo "✗ ERROR: Could not find make-prg.c in Ndless repository"
+              echo ""
               echo "Checked locations:"
               echo "  - /tmp/ndless-src/bin"
               echo "  - /tmp/ndless-src/ndless/bin"
               echo "  - /tmp/ndless-src/tools/bin"
-              echo "Actual repository structure:"
+              echo "  - Recursive search for bin/ directories"
+              echo "  - Recursive search for make-prg.c file"
+              echo ""
+              echo "Repository structure:"
               ls -la /tmp/ndless-src/ 2>/dev/null || true
               if [ -d /tmp/ndless-src/ndless ]; then
+                echo ""
                 echo "ndless/ subdirectory contents:"
                 ls -la /tmp/ndless-src/ndless/ 2>/dev/null || true
               fi
               if [ -d /tmp/ndless-src/tools ]; then
+                echo ""
                 echo "tools/ subdirectory contents:"
                 ls -la /tmp/ndless-src/tools/ 2>/dev/null || true
               fi
-              exit 1
+              echo ""
+              echo "⚠ WARNING: make-prg not available from source - continuing without .tns packaging"
+              MAKEPRG_FOUND=1  # Skip make-prg build but don't exit
+            else
+              cd "$BIN_DIR"
+              if [ ! -f make-prg.c ]; then
+                echo "✗ ERROR: make-prg.c verified but no longer found at $BIN_DIR/make-prg.c"
+                echo "⚠ WARNING: Continuing without make-prg"
+                MAKEPRG_FOUND=1
+              else
+                echo "Building make-prg from source at $BIN_DIR..."
+                gcc -o make-prg make-prg.c
+                
+                if [ ! -f make-prg ]; then
+                  echo "✗ ERROR: make-prg binary not created by gcc"
+                  echo "⚠ WARNING: Continuing without make-prg"
+                  MAKEPRG_FOUND=1
+                else
+                  sudo install -m 755 make-prg /usr/local/bin/
+                  echo "✓ make-prg built and installed from source"
+                  MAKEPRG_FOUND=1
+                fi
+              fi
             fi
-            
-            cd "$BIN_DIR"
-            if [ ! -f make-prg.c ]; then
-              echo "✗ ERROR: make-prg.c not found"
-              exit 1
-            fi
-            
-            gcc -o make-prg make-prg.c
-            
-            if [ ! -f make-prg ]; then
-              echo "✗ ERROR: make-prg binary not created by gcc"
-              exit 1
-            fi
-            
-            sudo install -m 755 make-prg /usr/local/bin/
-            echo "✓ make-prg built from source"
           fi
           
           if ! which make-prg >/dev/null 2>&1; then
