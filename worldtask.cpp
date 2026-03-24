@@ -182,39 +182,39 @@ void WorldTask::logic()
             switch(touchpad.arrow)
             {
             case TPAD_ARROW_DOWN:
-                xr += speed()/3;
+                xr += speed()/2;
                 break;
             case TPAD_ARROW_UP:
-                xr -= speed()/3;
+                xr -= speed()/2;
                 break;
             case TPAD_ARROW_LEFT:
-                yr -= speed()/3;
+                yr -= speed()/2;
                 break;
             case TPAD_ARROW_RIGHT:
-                yr += speed()/3;
+                yr += speed()/2;
                 break;
             case TPAD_ARROW_RIGHTDOWN:
-                xr += speed()/3;
-                yr += speed()/3;
+                xr += speed()/2;
+                yr += speed()/2;
                 break;
             case TPAD_ARROW_UPRIGHT:
-                xr -= speed()/3;
-                yr += speed()/3;
+                xr -= speed()/2;
+                yr += speed()/2;
                 break;
             case TPAD_ARROW_DOWNLEFT:
-                xr += speed()/3;
-                yr -= speed()/3;
+                xr += speed()/2;
+                yr -= speed()/2;
                 break;
             case TPAD_ARROW_LEFTUP:
-                xr -= speed()/3;
-                yr -= speed()/3;
+                xr -= speed()/2;
+                yr -= speed()/2;
                 break;
             }
         }
         else if(tp_had_contact && touchpad.contact)
         {
-            yr += (touchpad.x - tp_last_x) / 50;
-            xr -= (touchpad.y - tp_last_y) / 50;
+            yr += (touchpad.x - tp_last_x) / 35;
+            xr -= (touchpad.y - tp_last_y) / 35;
         }
 
         tp_had_contact = touchpad.contact;

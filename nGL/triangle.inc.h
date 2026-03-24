@@ -328,21 +328,20 @@
                             }
                             
                             int my_z = z.toInteger<int>();
-                            // Start fog at ngl_fog_start
                             if (my_z > ngl_fog_start) {
                                 int fog_val = ((my_z - ngl_fog_start) * ngl_fog_multiplier) >> 12;
                                 if (fog_val > 256) fog_val = 256;
                                 if (fog_val < 0) fog_val = 0;
                                 int inv_fog = 256 - fog_val;
-                                
+
                                 int r_f = (c >> 11) & 0x1F;
                                 int g_f = (c >> 5) & 0x3F;
                                 int b_f = c & 0x1F;
-                                
+
                                 r_f = ((r_f * inv_fog) >> 8) + ((24 * fog_val) >> 8);
                                 g_f = ((g_f * inv_fog) >> 8) + ((54 * fog_val) >> 8);
                                 b_f = ((b_f * inv_fog) >> 8) + ((31 * fog_val) >> 8);
-                                
+
                                 c = (r_f << 11) | (g_f << 5) | b_f;
                             }
 #ifdef TRANSPARENCY
@@ -547,21 +546,20 @@
                             }
                             
                             int my_z = z.toInteger<int>();
-                            // Start fog at ngl_fog_start
                             if (my_z > ngl_fog_start) {
                                 int fog_val = ((my_z - ngl_fog_start) * ngl_fog_multiplier) >> 12;
                                 if (fog_val > 256) fog_val = 256;
                                 if (fog_val < 0) fog_val = 0;
                                 int inv_fog = 256 - fog_val;
-                                
+
                                 int r_f = (c >> 11) & 0x1F;
                                 int g_f = (c >> 5) & 0x3F;
                                 int b_f = c & 0x1F;
-                                
+
                                 r_f = ((r_f * inv_fog) >> 8) + ((24 * fog_val) >> 8);
                                 g_f = ((g_f * inv_fog) >> 8) + ((54 * fog_val) >> 8);
                                 b_f = ((b_f * inv_fog) >> 8) + ((31 * fog_val) >> 8);
-                                
+
                                 c = (r_f << 11) | (g_f << 5) | b_f;
                             }
 #ifdef TRANSPARENCY
