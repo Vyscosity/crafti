@@ -31,6 +31,10 @@ private:
     unsigned int held_count = 0;
     bool left_mouse_was_down = false;
     bool right_mouse_was_down = false;
+
+    int cursor_x = SCREEN_WIDTH / 2;
+    int cursor_y = SCREEN_HEIGHT / 2;
+    bool nspire_select_was_down = false;
     
     // Crafting table
     BLOCK_WDATA crafting_input[CRAFTING_INPUT_COUNT] = {};

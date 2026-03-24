@@ -1,5 +1,6 @@
 #include <libndls.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifndef _TINSPIRE
 #define SDL_MAIN_HANDLED
@@ -12,6 +13,15 @@
 #include "worldtask.h"
 
 #include "textures/loading.h"
+
+static uint32_t nowMs()
+{
+#ifdef _TINSPIRE
+    return static_cast<uint32_t>((clock() * 1000) / CLOCKS_PER_SEC);
+#else
+    return SDL_GetTicks();
+#endif
+}
 
 int main(int argc, char *argv[])
 {
@@ -70,18 +80,15 @@ int main(int argc, char *argv[])
     //Start with WorldTask as current task
     world_task.makeCurrent();
 
-#ifndef _TINSPIRE
-    constexpr Uint32 tick_ms = 33; // Fixed simulation tick (~30 Hz)
-    constexpr Uint32 max_frame_ms = 250; // Clamp to avoid huge catch-up after pauses
-    Uint32 prev_ticks = SDL_GetTicks();
-    Uint32 accumulator = 0;
-#endif
+    constexpr uint32_t tick_ms = 33; // Fixed simulation tick (~30 Hz)
+    constexpr uint32_t max_frame_ms = 250; // Clamp to avoid huge catch-up after pauses
+    uint32_t prev_ticks = nowMs();
+    uint32_t accumulator = 0;
 
     while(Task::running)
     {
-#ifndef _TINSPIRE
-        const Uint32 now = SDL_GetTicks();
-        Uint32 frame_time = now - prev_ticks;
+        const uint32_t now = nowMs();
+        uint32_t frame_time = now - prev_ticks;
         prev_ticks = now;
         if(frame_time > max_frame_ms)
             frame_time = max_frame_ms;
@@ -101,11 +108,6 @@ int main(int argc, char *argv[])
                 break;
             }
         }
-#endif
-
-#ifdef _TINSPIRE
-        Task::current_task->logic();
-#endif
 
         //Reset "loading" message
         drawLoadingtext(-1);

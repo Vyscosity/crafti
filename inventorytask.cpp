@@ -77,6 +77,14 @@ void InventoryTask::makeCurrent()
     if(!background_saved)
         saveBackground();
 
+#ifdef _TINSPIRE
+    const int inv_x = inventoryOriginX();
+    const int inv_y = inventoryOriginY();
+    cursor_x = inv_x + hotbar_src_x * inv_draw_scale + inv_draw_slot_size / 2;
+    cursor_y = inv_y + hotbar_src_y * inv_draw_scale + inv_draw_slot_size / 2;
+    nspire_select_was_down = false;
+#endif
+
     Task::makeCurrent();
 }
 
@@ -713,6 +721,8 @@ void InventoryTask::render()
         snprintf(count_text, sizeof(count_text), "%u", held_count);
         drawString(count_text, 0xFFFF, *screen, mx + 8, my + 8);
     }
+#else
+    drawRectangle(*screen, std::max(0, cursor_x - 4), std::max(0, cursor_y - 4), 9, 9, 0xFFFF);
 #endif
 }
 
@@ -772,6 +782,30 @@ void InventoryTask::logic()
     {
         world_task.makeCurrent();
         key_held_down = true;
+        return;
     }
+
+    const int cursor_step = 6;
+    if(keyPressed(KEY_NSPIRE_LEFT))
+        cursor_x -= cursor_step;
+    else if(keyPressed(KEY_NSPIRE_RIGHT))
+        cursor_x += cursor_step;
+
+    if(keyPressed(KEY_NSPIRE_UP))
+        cursor_y -= cursor_step;
+    else if(keyPressed(KEY_NSPIRE_DOWN))
+        cursor_y += cursor_step;
+
+    cursor_x = std::max(0, std::min(cursor_x, SCREEN_WIDTH - 1));
+    cursor_y = std::max(0, std::min(cursor_y, SCREEN_HEIGHT - 1));
+
+    const bool select_down = keyPressed(KEY_NSPIRE_CLICK) || keyPressed(KEY_NSPIRE_5);
+    if(select_down && !nspire_select_was_down)
+    {
+        const int slot = slotFromMouse(cursor_x, cursor_y);
+        if(slot >= 0)
+            handleLeftClick(slot);
+    }
+    nspire_select_was_down = select_down;
 #endif
 }
