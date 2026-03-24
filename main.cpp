@@ -122,6 +122,11 @@ int main(int argc, char *argv[])
 
     Task::deinitializeGlobals();
 
+    // Must clear the world before shutting down graphics, otherwise
+    // the global world object's destructor will try to delete chunks
+    // after graphics resources have been freed
+    world.clear();
+
     nglUninit();
 
     terrainUninit();
