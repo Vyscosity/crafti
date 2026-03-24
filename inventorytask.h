@@ -24,6 +24,7 @@ private:
     bool isHoldingItem() const;
     void handleLeftClick(int slot);
     void handleRightClick(int slot);
+    void handleHalfPlace(int slot);
     void tryCraft();
     bool isCraftingSlot(int slot) const;
 
@@ -35,6 +36,11 @@ private:
     int cursor_x = SCREEN_WIDTH / 2;
     int cursor_y = SCREEN_HEIGHT / 2;
     bool nspire_select_was_down = false;
+    bool nspire_single_was_down = false;
+    bool nspire_half_was_down = false;
+    bool nspire_tp_had_contact = false;
+    uint16_t nspire_tp_last_x = 0;
+    uint16_t nspire_tp_last_y = 0;
     
     // Crafting table
     BLOCK_WDATA crafting_input[CRAFTING_INPUT_COUNT] = {};

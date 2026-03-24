@@ -83,6 +83,11 @@ void InventoryTask::makeCurrent()
     cursor_x = inv_x + hotbar_src_x * inv_draw_scale + inv_draw_slot_size / 2;
     cursor_y = inv_y + hotbar_src_y * inv_draw_scale + inv_draw_slot_size / 2;
     nspire_select_was_down = false;
+    nspire_single_was_down = false;
+    nspire_half_was_down = false;
+    nspire_tp_had_contact = false;
+    nspire_tp_last_x = 0;
+    nspire_tp_last_y = 0;
 #endif
 
     Task::makeCurrent();
@@ -203,7 +208,7 @@ void InventoryTask::drawSlotItem(TEXTURE &tex, int slot, int x, int y)
 
     char count_text[12];
     snprintf(count_text, sizeof(count_text), "%u", count);
-    drawString(count_text, 0xFFFF, tex, x + inv_draw_slot_inset + 20, y + inv_draw_slot_inset + 2);
+    drawString(count_text, 0xFFFF, tex, x + inv_draw_slot_size - 10, y + 2);
 }
 
 bool InventoryTask::isHoldingItem() const
@@ -590,6 +595,66 @@ void InventoryTask::handleRightClick(int slot)
         held_block = BLOCK_AIR;
 }
 
+void InventoryTask::handleHalfPlace(int slot)
+{
+    if(!isHoldingItem())
+        return;
+
+    if(slot == CRAFTING_OUTPUT_SLOT)
+        return;
+
+    unsigned int place_count = held_count / 2;
+    if(place_count == 0)
+        place_count = 1;
+
+    if(slot >= CRAFTING_SLOT_OFFSET && slot < CRAFTING_OUTPUT_SLOT)
+    {
+        const int craft_slot = slot - CRAFTING_SLOT_OFFSET;
+        const BLOCK_WDATA slot_block = crafting_input[craft_slot];
+        const unsigned int slot_count = crafting_counts[craft_slot];
+
+        if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+        {
+            crafting_input[craft_slot] = held_block;
+            crafting_counts[craft_slot] = place_count;
+        }
+        else if(slot_block == held_block)
+        {
+            crafting_counts[craft_slot] = slot_count + place_count;
+        }
+        else
+            return;
+
+        held_count -= place_count;
+        if(held_count == 0)
+            held_block = BLOCK_AIR;
+
+        tryCraft();
+        return;
+    }
+
+    if(slot < 0 || slot >= Inventory::slot_count)
+        return;
+
+    const BLOCK_WDATA slot_block = current_inventory.slotBlock(slot);
+    const unsigned int slot_count = current_inventory.slotCount(slot);
+
+    if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+    {
+        current_inventory.setSlot(slot, held_block, place_count);
+    }
+    else if(slot_block == held_block)
+    {
+        current_inventory.setSlot(slot, slot_block, slot_count + place_count);
+    }
+    else
+        return;
+
+    held_count -= place_count;
+    if(held_count == 0)
+        held_block = BLOCK_AIR;
+}
+
 void InventoryTask::render()
 {
     drawBackground();
@@ -677,7 +742,7 @@ void InventoryTask::render()
                 
                 char count_text[12];
                 snprintf(count_text, sizeof(count_text), "%u", count);
-                drawString(count_text, 0xFFFF, *screen, x + inv_draw_slot_inset + 20, y + inv_draw_slot_inset + 2);
+                drawString(count_text, 0xFFFF, *screen, x + slot_draw_size - 10, y + 2);
             }
         }
 
@@ -708,7 +773,7 @@ void InventoryTask::render()
         
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", crafting_output_count);
-        drawString(count_text, 0xFFFF, *screen, output_draw_x + inv_draw_slot_inset + 4, output_draw_y + inv_draw_slot_inset + 2);
+        drawString(count_text, 0xFFFF, *screen, output_draw_x + output_draw_w - 10, output_draw_y + 2);
     }
 
 #ifndef _TINSPIRE
@@ -722,6 +787,23 @@ void InventoryTask::render()
         drawString(count_text, 0xFFFF, *screen, mx + 8, my + 8);
     }
 #else
+    if(getBLOCK(held_block) != BLOCK_AIR && held_count > 0)
+    {
+        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(held_block).resized;
+        const int held_size = inv_draw_slot_size;
+        const int held_x = std::max(0, std::min(cursor_x - held_size / 2, SCREEN_WIDTH - held_size));
+        const int held_y = std::max(0, std::min(cursor_y - held_size / 2, SCREEN_HEIGHT - held_size));
+        drawTexture(*terrain_resized, *screen,
+                    icon_tex.left, icon_tex.top,
+                    icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                    held_x, held_y,
+                    held_size, held_size);
+
+        char count_text[12];
+        snprintf(count_text, sizeof(count_text), "%u", held_count);
+        drawString(count_text, 0xFFFF, *screen, std::min(held_x + held_size + 2, SCREEN_WIDTH - 20), held_y);
+    }
+
     drawRectangle(*screen, std::max(0, cursor_x - 4), std::max(0, cursor_y - 4), 9, 9, 0xFFFF);
 #endif
 }
@@ -785,7 +867,52 @@ void InventoryTask::logic()
         return;
     }
 
-    const int cursor_step = 6;
+    const int cursor_step = 1;
+    const int touchpad_sensitivity_div = 10;
+    if(has_touchpad)
+    {
+        touchpad_report_t touchpad;
+        touchpad_scan(&touchpad);
+
+        if(nspire_tp_had_contact && touchpad.contact)
+        {
+            const int dx = static_cast<int>(touchpad.x) - static_cast<int>(nspire_tp_last_x);
+            const int dy = static_cast<int>(touchpad.y) - static_cast<int>(nspire_tp_last_y);
+            cursor_x += dx / touchpad_sensitivity_div;
+            // Invert touchpad Y so swiping up moves cursor up.
+            cursor_y -= dy / touchpad_sensitivity_div;
+        }
+
+        if(touchpad.pressed)
+        {
+            switch(touchpad.arrow)
+            {
+            case TPAD_ARROW_LEFT:
+            case TPAD_ARROW_LEFTUP:
+                cursor_x -= cursor_step;
+                break;
+            case TPAD_ARROW_RIGHT:
+            case TPAD_ARROW_RIGHTDOWN:
+                cursor_x += cursor_step;
+                break;
+            case TPAD_ARROW_UP:
+            case TPAD_ARROW_UPRIGHT:
+                cursor_y += cursor_step;
+                break;
+            case TPAD_ARROW_DOWN:
+            case TPAD_ARROW_DOWNLEFT:
+                cursor_y -= cursor_step;
+                break;
+            default:
+                break;
+            }
+        }
+
+        nspire_tp_had_contact = touchpad.contact;
+        nspire_tp_last_x = touchpad.x;
+        nspire_tp_last_y = touchpad.y;
+    }
+
     if(keyPressed(KEY_NSPIRE_LEFT))
         cursor_x -= cursor_step;
     else if(keyPressed(KEY_NSPIRE_RIGHT))
@@ -800,12 +927,28 @@ void InventoryTask::logic()
     cursor_y = std::max(0, std::min(cursor_y, SCREEN_HEIGHT - 1));
 
     const bool select_down = keyPressed(KEY_NSPIRE_CLICK) || keyPressed(KEY_NSPIRE_5);
+    const bool single_down = keyPressed(KEY_NSPIRE_SHIFT);
+    const bool half_down = keyPressed(KEY_NSPIRE_VAR);
+
+    const int slot = slotFromMouse(cursor_x, cursor_y);
     if(select_down && !nspire_select_was_down)
     {
-        const int slot = slotFromMouse(cursor_x, cursor_y);
         if(slot >= 0)
             handleLeftClick(slot);
     }
+    if(single_down && !nspire_single_was_down)
+    {
+        if(slot >= 0)
+            handleRightClick(slot);
+    }
+    if(half_down && !nspire_half_was_down)
+    {
+        if(slot >= 0)
+            handleHalfPlace(slot);
+    }
+
     nspire_select_was_down = select_down;
+    nspire_single_was_down = single_down;
+    nspire_half_was_down = half_down;
 #endif
 }

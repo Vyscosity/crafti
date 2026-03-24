@@ -80,7 +80,11 @@ int main(int argc, char *argv[])
     //Start with WorldTask as current task
     world_task.makeCurrent();
 
+    #ifdef _TINSPIRE
+    constexpr uint32_t tick_ms = 300; // Calculator fixed simulation tick
+    #else
     constexpr uint32_t tick_ms = 33; // Fixed simulation tick (~30 Hz)
+    #endif
     constexpr uint32_t max_frame_ms = 250; // Clamp to avoid huge catch-up after pauses
     uint32_t prev_ticks = nowMs();
     uint32_t accumulator = 0;
