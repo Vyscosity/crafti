@@ -31,6 +31,19 @@ constexpr int storage_src_x = 8;
 constexpr int storage_src_y = 84;
 constexpr int storage_cols = 9;
 constexpr int storage_rows = 3;
+
+// Crafting area coordinates in inventory2.png
+constexpr int crafting_src_x = 87;
+constexpr int crafting_src_y = 25;
+constexpr int crafting_output_src_x = 143;
+constexpr int crafting_output_src_y = 35;
+
+// Crafting grid is 2x2
+constexpr int crafting_cols = 2;
+constexpr int crafting_rows = 2;
+constexpr int crafting_slot_width = 18;  // (122-87+1) / 2 = ~18
+constexpr int crafting_slot_height = 18; // (60-25+1) / 2 = ~18
+
 constexpr int inventory_center_offset_x = 0;
 constexpr int inventory_center_offset_y = 40;
 
@@ -69,6 +82,22 @@ int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
     const int slot_size = inv_draw_slot_size;
     const int pitch = inv_draw_pitch;
 
+    // Check crafting area
+    int crafting_slot = craftingSlotFromMouse(mouse_x, mouse_y);
+    if(crafting_slot != INVALID_SLOT)
+        return CRAFTING_SLOT_OFFSET + crafting_slot;
+
+    // Check output slot
+    const int output_src_w = 160 - 143 + 1;
+    const int output_src_h = 52 - 35 + 1;
+    const int output_draw_x = inv_x + crafting_output_src_x * inv_draw_scale;
+    const int output_draw_y = inv_y + crafting_output_src_y * inv_draw_scale;
+    const int output_draw_w = output_src_w * inv_draw_scale;
+    const int output_draw_h = output_src_h * inv_draw_scale;
+    if(mouse_x >= output_draw_x && mouse_x < output_draw_x + output_draw_w &&
+       mouse_y >= output_draw_y && mouse_y < output_draw_y + output_draw_h)
+        return CRAFTING_OUTPUT_SLOT;
+
     for(int i = 0; i < Inventory::hotbar_slot_count; ++i)
     {
         const int sx = hotbar_src_x * inv_draw_scale + i * pitch;
@@ -87,6 +116,39 @@ int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
         }
 
     return -1;
+}
+
+int InventoryTask::craftingSlotFromMouse(int mouse_x, int mouse_y) const
+{
+    const int inv_x = inventoryOriginX();
+    const int inv_y = inventoryOriginY();
+
+    const int craft_draw_x = inv_x + crafting_src_x * inv_draw_scale;
+    const int craft_draw_y = inv_y + crafting_src_y * inv_draw_scale;
+
+    const int local_x = mouse_x - craft_draw_x;
+    const int local_y = mouse_y - craft_draw_y;
+
+    // Check if click is within crafting grid bounds
+    const int craft_width = crafting_slot_width * crafting_cols * inv_draw_scale;
+    const int craft_height = crafting_slot_height * crafting_rows * inv_draw_scale;
+
+    if(local_x < 0 || local_x >= craft_width || local_y < 0 || local_y >= craft_height)
+        return INVALID_SLOT;
+
+    const int slot_draw_size = crafting_slot_width * inv_draw_scale;
+    const int col = local_x / slot_draw_size;
+    const int row = local_y / slot_draw_size;
+
+    if(col >= crafting_cols || row >= crafting_rows)
+        return INVALID_SLOT;
+
+    return row * crafting_cols + col;
+}
+
+bool InventoryTask::isCraftingSlot(int slot) const
+{
+    return slot >= CRAFTING_SLOT_OFFSET && slot <= CRAFTING_OUTPUT_SLOT;
 }
 
 void InventoryTask::drawSlotItem(TEXTURE &tex, int slot, int x, int y)
@@ -124,8 +186,149 @@ bool InventoryTask::isHoldingItem() const
     return getBLOCK(held_block) != BLOCK_AIR && held_count > 0;
 }
 
+void InventoryTask::tryCraft()
+{
+    // Count items in crafting grid
+    int log_count = 0, plank_count = 0;
+    
+    for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+    {
+        BLOCK b = getBLOCK(crafting_input[i]);
+        if(b == BLOCK_WOOD)
+            log_count += crafting_counts[i];
+        else if(b == BLOCK_PLANKS_NORMAL)
+            plank_count += crafting_counts[i];
+    }
+
+    BLOCK_WDATA new_output = BLOCK_AIR;
+    unsigned int new_count = 0;
+
+    // Recipe 1: 1 Log → 4 Planks
+    if(log_count >= 1 && plank_count == 0)
+    {
+        new_output = getBLOCKWDATA(BLOCK_PLANKS_NORMAL, 0);
+        new_count = 4;
+    }
+    // Recipe 2: 4 Planks → 1 Crafting Table
+    else if(plank_count >= 4 && log_count == 0)
+    {
+        new_output = getBLOCKWDATA(BLOCK_CRAFTING_TABLE, 0);
+        new_count = 1;
+    }
+
+    crafting_output = new_output;
+    crafting_output_count = new_count;
+}
+
 void InventoryTask::handleLeftClick(int slot)
 {
+    // Handle crafting output slot (read-only, can only pick up)
+    if(slot == CRAFTING_OUTPUT_SLOT)
+    {
+        if(crafting_output_count > 0 && getBLOCK(crafting_output) != BLOCK_AIR)
+        {
+            if(!isHoldingItem())
+            {
+                held_block = crafting_output;
+                held_count = crafting_output_count;
+                
+                // Consume ingredients
+                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                {
+                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    {
+                        crafting_counts[i]--;
+                        break;
+                    }
+                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                    {
+                        crafting_counts[i] -= 4;
+                        break;
+                    }
+                }
+                
+                crafting_output = BLOCK_AIR;
+                crafting_output_count = 0;
+                tryCraft();
+                return;
+            }
+            else if(held_block == crafting_output)
+            {
+                // Add output to held items
+                held_count++;
+                
+                // Consume ingredients
+                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                {
+                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    {
+                        crafting_counts[i]--;
+                        break;
+                    }
+                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                    {
+                        crafting_counts[i] -= 4;
+                        break;
+                    }
+                }
+                
+                crafting_output = BLOCK_AIR;
+                crafting_output_count = 0;
+                tryCraft();
+                return;
+            }
+        }
+        return;
+    }
+
+    // Handle crafting input slots
+    if(slot >= CRAFTING_SLOT_OFFSET && slot < CRAFTING_OUTPUT_SLOT)
+    {
+        int craft_slot = slot - CRAFTING_SLOT_OFFSET;
+        const BLOCK_WDATA slot_block = crafting_input[craft_slot];
+        const unsigned int slot_count = crafting_counts[craft_slot];
+
+        if(!isHoldingItem())
+        {
+            if(getBLOCK(slot_block) != BLOCK_AIR && slot_count > 0)
+            {
+                held_block = slot_block;
+                held_count = slot_count;
+                crafting_input[craft_slot] = BLOCK_AIR;
+                crafting_counts[craft_slot] = 0;
+                tryCraft();
+            }
+            return;
+        }
+
+        if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+        {
+            crafting_input[craft_slot] = held_block;
+            crafting_counts[craft_slot] = held_count;
+            held_block = BLOCK_AIR;
+            held_count = 0;
+            tryCraft();
+        }
+        else if(slot_block == held_block)
+        {
+            crafting_input[craft_slot] = slot_block;
+            crafting_counts[craft_slot] = slot_count + held_count;
+            held_block = BLOCK_AIR;
+            held_count = 0;
+            tryCraft();
+        }
+        else
+        {
+            crafting_input[craft_slot] = held_block;
+            crafting_counts[craft_slot] = held_count;
+            held_block = slot_block;
+            held_count = slot_count;
+            tryCraft();
+        }
+        return;
+    }
+
+    // Handle regular inventory slots
     const BLOCK_WDATA slot_block = current_inventory.slotBlock(slot);
     const unsigned int slot_count = current_inventory.slotCount(slot);
 
@@ -162,6 +365,107 @@ void InventoryTask::handleLeftClick(int slot)
 
 void InventoryTask::handleRightClick(int slot)
 {
+    // Handle crafting output slot (read-only, can only pick up one)
+    if(slot == CRAFTING_OUTPUT_SLOT)
+    {
+        if(crafting_output_count > 0 && getBLOCK(crafting_output) != BLOCK_AIR)
+        {
+            if(!isHoldingItem())
+            {
+                held_block = crafting_output;
+                held_count = 1;
+                
+                // Consume ingredients
+                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                {
+                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    {
+                        crafting_counts[i]--;
+                        break;
+                    }
+                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                    {
+                        crafting_counts[i] -= 4;
+                        break;
+                    }
+                }
+                
+                crafting_output = BLOCK_AIR;
+                crafting_output_count = 0;
+                tryCraft();
+                return;
+            }
+            else if(held_block == crafting_output)
+            {
+                held_count++;
+                
+                // Consume ingredients
+                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                {
+                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    {
+                        crafting_counts[i]--;
+                        break;
+                    }
+                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                    {
+                        crafting_counts[i] -= 4;
+                        break;
+                    }
+                }
+                
+                crafting_output = BLOCK_AIR;
+                crafting_output_count = 0;
+                tryCraft();
+                return;
+            }
+        }
+        return;
+    }
+
+    // Handle crafting input slots
+    if(slot >= CRAFTING_SLOT_OFFSET && slot < CRAFTING_OUTPUT_SLOT)
+    {
+        int craft_slot = slot - CRAFTING_SLOT_OFFSET;
+        const BLOCK_WDATA slot_block = crafting_input[craft_slot];
+        const unsigned int slot_count = crafting_counts[craft_slot];
+
+        if(!isHoldingItem())
+        {
+            if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+                return;
+
+            const unsigned int picked = (slot_count + 1) / 2;
+            const unsigned int remaining = slot_count - picked;
+            held_block = slot_block;
+            held_count = picked;
+            crafting_input[craft_slot] = remaining == 0 ? BLOCK_AIR : slot_block;
+            crafting_counts[craft_slot] = remaining;
+            tryCraft();
+            return;
+        }
+
+        if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+        {
+            crafting_input[craft_slot] = held_block;
+            crafting_counts[craft_slot] = 1;
+            --held_count;
+        }
+        else if(slot_block == held_block)
+        {
+            crafting_input[craft_slot] = slot_block;
+            crafting_counts[craft_slot] = slot_count + 1;
+            --held_count;
+        }
+
+        if(held_count == 0)
+            held_block = BLOCK_AIR;
+        
+        tryCraft();
+        return;
+    }
+
+    // Handle regular inventory slots
     const BLOCK_WDATA slot_block = current_inventory.slotBlock(slot);
     const unsigned int slot_count = current_inventory.slotCount(slot);
 
@@ -246,6 +550,55 @@ void InventoryTask::render()
             const int y = inv_y + storage_src_y * inv_draw_scale + row * pitch;
             drawSlotItem(*screen, slot, x, y);
         }
+
+    // Draw crafting grid items
+    const int craft_draw_x = inv_x + crafting_src_x * inv_draw_scale;
+    const int craft_draw_y = inv_y + crafting_src_y * inv_draw_scale;
+    const int slot_draw_size = crafting_slot_width * inv_draw_scale;
+    
+    for(int row = 0; row < crafting_rows; ++row)
+        for(int col = 0; col < crafting_cols; ++col)
+        {
+            const int craft_slot = row * crafting_cols + col;
+            const int x = craft_draw_x + col * slot_draw_size;
+            const int y = craft_draw_y + row * slot_draw_size;
+            
+            const BLOCK_WDATA block = crafting_input[craft_slot];
+            const unsigned int count = crafting_counts[craft_slot];
+            if(getBLOCK(block) != BLOCK_AIR && count > 0)
+            {
+                const int icon_w = 24;
+                const int icon_h = 24;
+                const int preview_x = x + (slot_draw_size - icon_w) / 2;
+                const int preview_y = y + (slot_draw_size - icon_h) / 2;
+                global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
+                
+                char count_text[12];
+                snprintf(count_text, sizeof(count_text), "%u", count);
+                drawString(count_text, 0xFFFF, *screen, x + inv_draw_slot_inset + 20, y + inv_draw_slot_inset + 2);
+            }
+        }
+
+    // Draw crafting output
+    const int output_src_w = 160 - 143 + 1;
+    const int output_src_h = 52 - 35 + 1;
+    const int output_draw_x = inv_x + crafting_output_src_x * inv_draw_scale;
+    const int output_draw_y = inv_y + crafting_output_src_y * inv_draw_scale;
+    const int output_draw_w = output_src_w * inv_draw_scale;
+    const int output_draw_h = output_src_h * inv_draw_scale;
+    
+    if(getBLOCK(crafting_output) != BLOCK_AIR && crafting_output_count > 0)
+    {
+        const int icon_w = 24;
+        const int icon_h = 24;
+        const int preview_x = output_draw_x + (output_draw_w - icon_w) / 2;
+        const int preview_y = output_draw_y + (output_draw_h - icon_h) / 2;
+        global_block_renderer.drawPreview(crafting_output, *screen, preview_x, preview_y);
+        
+        char count_text[12];
+        snprintf(count_text, sizeof(count_text), "%u", crafting_output_count);
+        drawString(count_text, 0xFFFF, *screen, output_draw_x + inv_draw_slot_inset + 4, output_draw_y + inv_draw_slot_inset + 2);
+    }
 
 #ifndef _TINSPIRE
     int mx = 0, my = 0;
