@@ -232,18 +232,35 @@ void InventoryTask::handleLeftClick(int slot)
                 held_block = crafting_output;
                 held_count = crafting_output_count;
                 
-                // Consume ingredients
-                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                // Consume ingredients from crafting grid
+                if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
                 {
-                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    // Consume 4 planks from the grid (can be spread across slots)
+                    int remaining = 4;
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT && remaining > 0; ++i)
                     {
-                        crafting_counts[i]--;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+                        {
+                            int consume = std::min(remaining, (int)crafting_counts[i]);
+                            crafting_counts[i] -= consume;
+                            remaining -= consume;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                        }
                     }
-                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                }
+                else if(getBLOCK(crafting_output) == BLOCK_PLANKS_NORMAL)
+                {
+                    // Consume 1 log
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
                     {
-                        crafting_counts[i] -= 4;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                        {
+                            crafting_counts[i]--;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                            break;
+                        }
                     }
                 }
                 
@@ -258,17 +275,34 @@ void InventoryTask::handleLeftClick(int slot)
                 held_count++;
                 
                 // Consume ingredients
-                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
                 {
-                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    // Consume 4 planks
+                    int remaining = 4;
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT && remaining > 0; ++i)
                     {
-                        crafting_counts[i]--;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+                        {
+                            int consume = std::min(remaining, (int)crafting_counts[i]);
+                            crafting_counts[i] -= consume;
+                            remaining -= consume;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                        }
                     }
-                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                }
+                else if(getBLOCK(crafting_output) == BLOCK_PLANKS_NORMAL)
+                {
+                    // Consume 1 log
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
                     {
-                        crafting_counts[i] -= 4;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                        {
+                            crafting_counts[i]--;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                            break;
+                        }
                     }
                 }
                 
@@ -376,17 +410,34 @@ void InventoryTask::handleRightClick(int slot)
                 held_count = 1;
                 
                 // Consume ingredients
-                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
                 {
-                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    // Consume 4 planks
+                    int remaining = 4;
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT && remaining > 0; ++i)
                     {
-                        crafting_counts[i]--;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+                        {
+                            int consume = std::min(remaining, (int)crafting_counts[i]);
+                            crafting_counts[i] -= consume;
+                            remaining -= consume;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                        }
                     }
-                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                }
+                else if(getBLOCK(crafting_output) == BLOCK_PLANKS_NORMAL)
+                {
+                    // Consume 1 log
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
                     {
-                        crafting_counts[i] -= 4;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                        {
+                            crafting_counts[i]--;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                            break;
+                        }
                     }
                 }
                 
@@ -400,17 +451,34 @@ void InventoryTask::handleRightClick(int slot)
                 held_count++;
                 
                 // Consume ingredients
-                for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+                if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
                 {
-                    if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                    // Consume 4 planks
+                    int remaining = 4;
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT && remaining > 0; ++i)
                     {
-                        crafting_counts[i]--;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+                        {
+                            int consume = std::min(remaining, (int)crafting_counts[i]);
+                            crafting_counts[i] -= consume;
+                            remaining -= consume;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                        }
                     }
-                    else if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL && crafting_counts[i] >= 4)
+                }
+                else if(getBLOCK(crafting_output) == BLOCK_PLANKS_NORMAL)
+                {
+                    // Consume 1 log
+                    for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
                     {
-                        crafting_counts[i] -= 4;
-                        break;
+                        if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
+                        {
+                            crafting_counts[i]--;
+                            if(crafting_counts[i] == 0)
+                                crafting_input[i] = BLOCK_AIR;
+                            break;
+                        }
                     }
                 }
                 
