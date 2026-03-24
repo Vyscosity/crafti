@@ -134,6 +134,22 @@ static void makeWaterOpaque(TEXTURE &texture, const int x, const int y, const in
         }
 }
 
+// Some embedded texture variants store block-breaking frames with white background
+// instead of transparency. Convert pure white to transparent in that strip.
+static void fixBreakingOverlayTransparency(TEXTURE &texture, const int x, const int y, const int w, const int h)
+{
+    const int x_end = x + w;
+    const int y_end = y + h;
+
+    for(int x1 = x; x1 < x_end; ++x1)
+        for(int y1 = y; y1 < y_end; ++y1)
+        {
+            COLOR &pixel = texture.bitmap[x1 + y1 * texture.width];
+            if(pixel == 0xFFFF)
+                pixel = 0;
+        }
+}
+
 void terrainInit(const char *texture_path)
 {
     terrain_current = loadTextureFromFile(texture_path);
@@ -154,6 +170,9 @@ void terrainInit(const char *texture_path)
     int fields_y = 16;
     int field_width = terrain_current->width / fields_x;
     int field_height = terrain_current->height / fields_y;
+
+    // Crack textures are at (0..9, 15) in the terrain atlas.
+    fixBreakingOverlayTransparency(*terrain_current, 0, 15 * field_height, 10 * field_width, field_height);
 
     //Give grass and leaves color
     const RGB green = { 0.5f, 0.8f, 0.3f };
