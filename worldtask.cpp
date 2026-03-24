@@ -666,15 +666,15 @@ void WorldTask::render()
         const int inventory_x = (SCREEN_WIDTH - hotbar_draw_width) / 2;
         const int inventory_y = SCREEN_HEIGHT - hotbar_draw_height - 3;
         
-        // Selector bar: 2px wide, 22px tall from inventory.png at (1,23)
+        // Selector: 22x22 from inventory.png at (1,23) to (22,44)
         constexpr int selector_src_x = 1;
         constexpr int selector_src_y = 23;
-        constexpr int selector_src_w = 2;
+        constexpr int selector_src_w = 22;
         constexpr int selector_src_h = 22;
         
         const int slot_offset = current_inventory.currentSlotIndex() * hotbar_slot_pitch;
-        const int draw_x = inventory_x + hotbar_slots_left + slot_offset - selector_src_w * hotbar_scale;
-        const int draw_y = inventory_y + hotbar_slots_top;
+        const int draw_x = inventory_x + hotbar_slots_left + slot_offset - 2 * hotbar_scale;
+        const int draw_y = inventory_y + hotbar_slots_top - 2 * hotbar_scale;
         
         drawTexture(inventory, *screen,
                     selector_src_x, selector_src_y, selector_src_w, selector_src_h,
