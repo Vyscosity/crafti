@@ -17,6 +17,7 @@
 #include "inventorytask.h"
 
 #include "textures/blockselection.h"
+#include "textures/inventory.h"
 
 WorldTask world_task;
 
@@ -648,6 +649,37 @@ void WorldTask::render()
         const BLOCK_WDATA current_slot = current_inventory.currentSlot();
         current_inventory.draw(*screen);
         drawStringCenter(current_inventory.currentSlotCount() == 0 ? "Empty" : global_block_renderer.getName(current_slot), 0xFFFF, *screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT - current_inventory.height() - fontHeight());
+        
+        // Draw selection highlight using inventory texture at (1,23) to (2,44)
+        constexpr int hotbar_src_width = 22 * 9; // inventory.cpp: 22 * hotbar_slot_count
+        constexpr int hotbar_src_height = 22;
+        constexpr int hotbar_slot_src_left = 3;
+        constexpr int hotbar_slot_src_pitch = 20;
+        
+        const int hotbar_scale = SCREEN_WIDTH >= hotbar_src_width * 2 ? 2 : 1;
+        const int hotbar_draw_width = hotbar_src_width * hotbar_scale;
+        const int hotbar_draw_height = hotbar_src_height * hotbar_scale;
+        const int hotbar_slot_pitch = hotbar_slot_src_pitch * hotbar_scale;
+        const int hotbar_slots_left = hotbar_slot_src_left * hotbar_scale;
+        const int hotbar_slots_top = 3 * hotbar_scale;
+        
+        const int inventory_x = (SCREEN_WIDTH - hotbar_draw_width) / 2;
+        const int inventory_y = SCREEN_HEIGHT - hotbar_draw_height - 3;
+        
+        // Draw selector from inventory.png at (1,23) to (2,44)
+        constexpr int selector_src_x = 1;
+        constexpr int selector_src_y = 23;
+        constexpr int selector_src_w = 2;
+        constexpr int selector_src_h = 22;
+        
+        const int slot_offset = current_inventory.currentSlotIndex() * hotbar_slot_pitch;
+        const int draw_x = inventory_x + hotbar_slots_left - hotbar_scale + slot_offset;
+        const int draw_y = inventory_y + hotbar_slots_top - hotbar_scale;
+        
+        drawTexture(inventory, *screen,
+                    selector_src_x, selector_src_y, selector_src_w, selector_src_h,
+                    draw_x, draw_y,
+                    selector_src_w * hotbar_scale, selector_src_h * hotbar_scale);
     }
 
     if(message_timeout > 0)
