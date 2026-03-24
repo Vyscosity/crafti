@@ -146,6 +146,10 @@ void terrainInit(const char *texture_path)
     else
         puts("External texture loaded!");
 
+    // Enable transparency for all terrain textures (black=0x0000 is the transparent color)
+    terrain_current->has_transparency = true;
+    terrain_current->transparent_color = 0x0000;
+
     int fields_x = 16;
     int fields_y = 16;
     int field_width = terrain_current->width / fields_x;
