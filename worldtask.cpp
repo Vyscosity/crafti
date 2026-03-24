@@ -272,13 +272,18 @@ void WorldTask::logic()
         const Uint8 *keys = SDL_GetKeyState(nullptr);
         desktop_t_held = keys[SDLK_t] != 0;
 #endif
-        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU) || desktop_t_held;
+        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU) || keyPressed(KEY_NSPIRE_A) || desktop_t_held;
     }
 
     else if(keyPressed(KEY_NSPIRE_ESC)) //Save & Exit
     {
+    #ifdef _TINSPIRE
+        // Avoid save-on-exit instability on calculator builds.
+        Task::running = false;
+    #else
         save();
         Task::running = false;
+    #endif
         return;
     }
     else if(keyPressed(KEY_NSPIRE_7)) //Put block down
@@ -467,6 +472,12 @@ void WorldTask::logic()
     else if(keyPressed(KEY_NSPIRE_MENU))
     {
         menu_task.makeCurrent();
+
+        key_held_down = true;
+    }
+    else if(keyPressed(KEY_NSPIRE_A))
+    {
+        inventory_task.makeCurrent();
 
         key_held_down = true;
     }

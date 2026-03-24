@@ -63,7 +63,11 @@ private:
 
     bool loaded = false;
     int cen_x = 0, cen_y = 0, cen_z = 0;
+#ifdef _TINSPIRE
+    int field_of_view = 120;
+#else
     int field_of_view = 15;
+#endif
     PerlinNoise perlin_noise;
     unsigned int *seed;
 

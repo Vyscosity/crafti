@@ -54,6 +54,14 @@ void Inventory::draw(TEXTURE &tex)
         const int slot_y = inventory_y + hotbar_slots_top;
         const int slot_px = hotbar_slot_size;
 
+    #ifdef _TINSPIRE
+        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+        drawTexture(*terrain_resized, tex,
+                icon_tex.left, icon_tex.top,
+                icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                slot_x, slot_y,
+                slot_px, slot_px);
+    #else
         if(getBLOCK(block) == BLOCK_DOOR)
         {
             const int door_w = 16;
@@ -71,6 +79,7 @@ void Inventory::draw(TEXTURE &tex)
             const int preview_y = slot_y + (slot_px - icon_h) / 2;
             global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
         }
+#endif
 
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", counts[i]);
