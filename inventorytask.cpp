@@ -20,7 +20,11 @@ namespace {
 constexpr int inv_src_slot_size = 16;
 constexpr int inv_src_slot_gap = 2;
 constexpr int inv_src_pitch = inv_src_slot_size + inv_src_slot_gap;
+#ifdef _TINSPIRE
+constexpr int inv_draw_scale = 1;
+#else
 constexpr int inv_draw_scale = 2;
+#endif
 constexpr int inv_draw_slot_size = inv_src_slot_size * inv_draw_scale;
 constexpr int inv_draw_slot_gap = inv_src_slot_gap * inv_draw_scale;
 constexpr int inv_draw_pitch = inv_draw_slot_size + inv_draw_slot_gap;
@@ -45,7 +49,11 @@ constexpr int crafting_slot_width = 18;  // (122-87+1) / 2 = ~18
 constexpr int crafting_slot_height = 18; // (60-25+1) / 2 = ~18
 
 constexpr int inventory_center_offset_x = 0;
+#ifdef _TINSPIRE
+constexpr int inventory_center_offset_y = 0;
+#else
 constexpr int inventory_center_offset_y = 40;
+#endif
 
 // The usable slot layout is not centered inside inventory2.png, so center using this region.
 constexpr int inventory_layout_left = storage_src_x;
@@ -158,6 +166,14 @@ void InventoryTask::drawSlotItem(TEXTURE &tex, int slot, int x, int y)
     if(getBLOCK(block) == BLOCK_AIR || count == 0)
         return;
 
+#ifdef _TINSPIRE
+    const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+    drawTexture(*terrain_resized, tex,
+                icon_tex.left, icon_tex.top,
+                icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                x, y,
+                inv_draw_slot_size, inv_draw_slot_size);
+#else
     if(getBLOCK(block) == BLOCK_DOOR)
     {
         const int door_w = 16;
@@ -175,6 +191,7 @@ void InventoryTask::drawSlotItem(TEXTURE &tex, int slot, int x, int y)
         const int preview_y = y + (inv_draw_slot_size - icon_h) / 2;
         global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
     }
+#endif
 
     char count_text[12];
     snprintf(count_text, sizeof(count_text), "%u", count);
@@ -635,11 +652,20 @@ void InventoryTask::render()
             const unsigned int count = crafting_counts[craft_slot];
             if(getBLOCK(block) != BLOCK_AIR && count > 0)
             {
+#ifdef _TINSPIRE
+                const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+                drawTexture(*terrain_resized, *screen,
+                            icon_tex.left, icon_tex.top,
+                            icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                            x, y,
+                            slot_draw_size, slot_draw_size);
+#else
                 const int icon_w = 24;
                 const int icon_h = 24;
                 const int preview_x = x + (slot_draw_size - icon_w) / 2;
                 const int preview_y = y + (slot_draw_size - icon_h) / 2;
                 global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
+#endif
                 
                 char count_text[12];
                 snprintf(count_text, sizeof(count_text), "%u", count);
@@ -657,11 +683,20 @@ void InventoryTask::render()
     
     if(getBLOCK(crafting_output) != BLOCK_AIR && crafting_output_count > 0)
     {
+#ifdef _TINSPIRE
+        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(crafting_output).resized;
+        drawTexture(*terrain_resized, *screen,
+                    icon_tex.left, icon_tex.top,
+                    icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                    output_draw_x, output_draw_y,
+                    output_draw_w, output_draw_h);
+#else
         const int icon_w = 24;
         const int icon_h = 24;
         const int preview_x = output_draw_x + (output_draw_w - icon_w) / 2;
         const int preview_y = output_draw_y + (output_draw_h - icon_h) / 2;
         global_block_renderer.drawPreview(crafting_output, *screen, preview_x, preview_y);
+#endif
         
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", crafting_output_count);
@@ -726,8 +761,14 @@ void InventoryTask::logic()
             handleRightClick(slot);
     }
 #else
-    // On calculator builds, close with the block list key.
-    if(keyPressed(KEY_NSPIRE_PERIOD))
+    if(key_held_down)
+    {
+        key_held_down = keyPressed(KEY_NSPIRE_A) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_ESC);
+        return;
+    }
+
+    // On calculator builds, close with A, . or ESC.
+    if(keyPressed(KEY_NSPIRE_A) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_ESC))
     {
         world_task.makeCurrent();
         key_held_down = true;
