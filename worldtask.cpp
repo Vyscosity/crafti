@@ -515,7 +515,8 @@ void WorldTask::render()
         if(breaking_frame >= breaking_frames)
             breaking_frame = breaking_frames - 1;
 
-        tex = terrain_atlas[breaking_frame][15].current;
+        // Use stone texture (which exists at [1,0]) with animated transparency instead of non-existent breaking animation frames
+        tex = terrain_atlas[1][0].current;
     }
     else
     {
