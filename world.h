@@ -63,7 +63,7 @@ private:
 
     bool loaded = false;
     int cen_x = 0, cen_y = 0, cen_z = 0;
-    int field_of_view = 10;
+    int field_of_view = 15;
     PerlinNoise perlin_noise;
     unsigned int *seed;
 
