@@ -11,6 +11,7 @@
 #include "terrain.h"
 #include "aabb.h"
 #include "particle.h"
+#include "oregeneration.h"
 
 class World;
 
@@ -90,6 +91,8 @@ public:
 private:
     //Terrain generation
     void makeTree(unsigned int x, unsigned int y, unsigned int z);
+    void generateOreVeins(); // Generate ore veins with Minecraft-like distribution
+    void generateSingleOreVein(const OreDistribution &ore_dist, int center_x, int center_y, int center_z, unsigned int seed);
 
     //Data
     unsigned int getPosition(unsigned int x, unsigned int y, unsigned int z);

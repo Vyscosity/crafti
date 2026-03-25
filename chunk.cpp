@@ -7,6 +7,7 @@
 #include "chunk.h"
 #include "fastmath.h"
 #include "blockrenderer.h"
+#include "oregeneration.h"
 
 //Texture with "Loading" written on it
 #include "textures/loadingtext.h"
@@ -563,23 +564,7 @@ void Chunk::generate()
                 //Deep underground
                 if(to_surface > 5)
                 {
-                    noise_val = noise.noise(GLFix(x)/Chunk::SIZE + this->x, GLFix(z)/Chunk::SIZE + this->z, 10.5f);
-                    if(noise_val < GLFix(0.2f))
-                    {
-                        noise_val = noise.noise(GLFix(x)/Chunk::SIZE + this->x, GLFix(z)/Chunk::SIZE + this->z, 1000.5f);
-                        uint8_t test = (noise_val.value>>4) & 0xF;
-
-                        if(test < 1)
-                            blocks[x][y][z] = BLOCK_DIAMOND_ORE;
-                        else if(test < 2)
-                            blocks[x][y][z] = BLOCK_REDSTONE_ORE;
-                        else if(test < 5)
-                            blocks[x][y][z] = BLOCK_IRON_ORE;
-                        else
-                            blocks[x][y][z] = BLOCK_COAL_ORE;
-                    }
-                    else
-                        blocks[x][y][z] = BLOCK_STONE;
+                    blocks[x][y][z] = BLOCK_STONE;
                 }
                 else if(height > sea_level + 1)
                 {
@@ -617,6 +602,9 @@ void Chunk::generate()
                 trees++;
             }
         }
+
+    // Generate ore veins using Minecraft-like distribution
+    generateOreVeins();
 
     debug("Done!\n");
 }
@@ -685,6 +673,101 @@ bool Chunk::isBlockPowered(const int x, const int y, const int z, bool ignore_re
         || gettingPowerFrom(x, y+1, z, BLOCK_BOTTOM, ignore_redstone_wire)
         || gettingPowerFrom(x, y, z-1, BLOCK_BACK, ignore_redstone_wire)
         || gettingPowerFrom(x, y, z+1, BLOCK_FRONT, ignore_redstone_wire);
+}
+
+void Chunk::generateOreVeins()
+{
+    // Generate ore veins using Minecraft-like distribution
+    // This is called after basic terrain generation to replace stone blocks with ore
+    
+    // For each ore type in the list
+    for (int ore_idx = 0; ore_idx < OreDistributions::ore_count; ore_idx++) {
+        const OreDistribution &ore_dist = OreDistributions::ore_list[ore_idx];
+        
+        // Attempt to generate multiple veins per chunk for this ore
+        for (int vein_attempt = 0; vein_attempt < ore_dist.veins_per_chunk; vein_attempt++) {
+            // Use pseudo-random seeding based on chunk position and ore type
+            unsigned int seed = (x * 73856093 ^ y * 19349663 ^ z * 83492791) ^ ore_idx ^ vein_attempt;
+            seed = seed * 1103515245 + 12345; // Simple LCG
+            
+            // Calculate the Y level for this vein based on distribution
+            int y_range = ore_dist.y_max - ore_dist.y_min;
+            int y_in_range;
+            
+            if (ore_dist.distribution == OreDistributionType::Triangle) {
+                // For triangle distribution, use weighted random selection
+                // Simple approach: pick random, weight by distance from peak
+                float max_prob = 0.0f;
+                int best_y = ore_dist.y_min;
+                
+                for (int test_y = ore_dist.y_min; test_y <= ore_dist.y_max; test_y++) {
+                    float prob = triangleDistributionProbability(test_y, ore_dist);
+                    if (prob > max_prob * ((seed >> 16) / 65536.0f)) {
+                        max_prob = prob;
+                        best_y = test_y;
+                    }
+                }
+                y_in_range = best_y;
+            } else {
+                // Uniform distribution: pick any Y in range
+                y_in_range = ore_dist.y_min + (seed % (y_range + 1));
+            }
+            
+            // Calculate chunk-local Y coordinate
+            int chunk_y_center = y_in_range - y * Chunk::SIZE;
+            
+            // Clamp to chunk bounds
+            if (chunk_y_center < 0 || chunk_y_center >= Chunk::SIZE)
+                continue;
+            
+            // Pick random position for vein center
+            seed = seed * 1103515245 + 12345;
+            int vein_center_x = seed % Chunk::SIZE;
+            seed = seed * 1103515245 + 12345;
+            int vein_center_z = seed % Chunk::SIZE;
+            
+            // Generate the vein
+            generateSingleOreVein(ore_dist, vein_center_x, chunk_y_center, vein_center_z, seed);
+        }
+    }
+}
+
+// Note: triangleDistributionProbability is now implemented in oregeneration.cpp
+// This local version is not needed - removed to avoid redefinition
+
+void Chunk::generateSingleOreVein(const OreDistribution &ore_dist, int center_x, int center_y, int center_z, unsigned int seed)
+{
+    // Generate a single ore vein using spherical distribution
+    int vein_radius = 1 + (seed >> 8) % (ore_dist.vein_size / 4 + 1);
+    int radius_sq = vein_radius * vein_radius;
+    
+    // Generate blocks in vein
+    for (int dx = -vein_radius; dx <= vein_radius; dx++) {
+        for (int dy = -vein_radius; dy <= vein_radius; dy++) {
+            for (int dz = -vein_radius; dz <= vein_radius; dz++) {
+                // Spherical distribution
+                int dist_sq = dx*dx + dy*dy + dz*dz;
+                if (dist_sq > radius_sq)
+                    continue;
+                
+                int x = center_x + dx;
+                int y = center_y + dy;
+                int z = center_z + dz;
+                
+                // Check bounds
+                if (x < 0 || x >= Chunk::SIZE || y < 0 || y >= Chunk::SIZE || z < 0 || z >= Chunk::SIZE)
+                    continue;
+                
+                // Only replace stone
+                BLOCK block = getBLOCK(blocks[x][y][z]);
+                if (block != BLOCK_STONE && block != BLOCK_BEDROCK)
+                    continue;
+                
+                // Place ore
+                blocks[x][y][z] = ore_dist.ore_block;
+            }
+        }
+    }
 }
 
 void Chunk::makeTree(unsigned int x, unsigned int y, unsigned int z)
