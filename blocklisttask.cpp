@@ -5,6 +5,7 @@
 #include "blockrenderer.h"
 #include "font.h"
 #include "inventory.h"
+#include "itemicons.h"
 #include "terrain.h"
 #include "texturetools.h"
 #include "worldtask.h"
@@ -191,8 +192,12 @@ void BlockListTask::render()
             if(block_nr >= page.count)
                 goto end;
 
+            const BLOCK_WDATA entry = page.entries[block_nr];
+
+            if(getBLOCK(entry) == BLOCK_ITEM)
+                drawItemIcon(entry, *screen, screen_x + pad_x, screen_y + pad_y, 24);
             //BLOCK_DOOR is twice as high, so center it manually
-            if(getBLOCK(page.entries[block_nr]) == BLOCK_DOOR)
+            else if(getBLOCK(entry) == BLOCK_DOOR)
                 global_block_renderer.drawPreview(page.entries[block_nr], *screen, screen_x + pad_x, screen_y + pad_y_door);
             else
                 global_block_renderer.drawPreview(page.entries[block_nr], *screen, screen_x + pad_y, screen_y + pad_y);
