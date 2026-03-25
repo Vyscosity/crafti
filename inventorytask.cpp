@@ -89,6 +89,85 @@ TEXTURE *craftingTableTexture()
 {
     return &crafting_table;
 }
+
+bool slotOccupied(BLOCK_WDATA block, unsigned int count)
+{
+    return getBLOCK(block) != BLOCK_AIR && count > 0;
+}
+
+bool findStickRecipe(const BLOCK_WDATA input[], const unsigned int counts[], int cols, int rows, int &slot_a, int &slot_b)
+{
+    int occupied = 0;
+    for(int i = 0; i < cols * rows; ++i)
+    {
+        if(!slotOccupied(input[i], counts[i]))
+            continue;
+
+        if(getBLOCK(input[i]) != BLOCK_PLANKS_NORMAL)
+            return false;
+
+        occupied++;
+    }
+
+    if(occupied != 2)
+        return false;
+
+    for(int row = 0; row < rows - 1; ++row)
+        for(int col = 0; col < cols; ++col)
+        {
+            const int s0 = row * cols + col;
+            const int s1 = (row + 1) * cols + col;
+            if(slotOccupied(input[s0], counts[s0]) && slotOccupied(input[s1], counts[s1]))
+            {
+                slot_a = s0;
+                slot_b = s1;
+                return true;
+            }
+        }
+
+    return false;
+}
+
+bool findCraftingTableRecipe(const BLOCK_WDATA input[], const unsigned int counts[], int cols, int rows, int slots[4])
+{
+    int occupied = 0;
+    for(int i = 0; i < cols * rows; ++i)
+    {
+        if(!slotOccupied(input[i], counts[i]))
+            continue;
+
+        if(getBLOCK(input[i]) != BLOCK_PLANKS_NORMAL)
+            return false;
+
+        occupied++;
+    }
+
+    if(occupied != 4)
+        return false;
+
+    for(int row = 0; row < rows - 1; ++row)
+        for(int col = 0; col < cols - 1; ++col)
+        {
+            const int s0 = row * cols + col;
+            const int s1 = row * cols + (col + 1);
+            const int s2 = (row + 1) * cols + col;
+            const int s3 = (row + 1) * cols + (col + 1);
+
+            if(slotOccupied(input[s0], counts[s0]) &&
+               slotOccupied(input[s1], counts[s1]) &&
+               slotOccupied(input[s2], counts[s2]) &&
+               slotOccupied(input[s3], counts[s3]))
+            {
+                slots[0] = s0;
+                slots[1] = s1;
+                slots[2] = s2;
+                slots[3] = s3;
+                return true;
+            }
+        }
+
+    return false;
+}
 }
 
 void InventoryTask::openPlayerInventory()
@@ -358,39 +437,54 @@ bool InventoryTask::isHoldingItem() const
 
 void InventoryTask::tryCraft()
 {
-    // Count items in crafting grid
-    int log_count = 0, plank_count = 0;
+    int log_count = 0;
+    int occupied_count = 0;
+    int occupied_wood_slots = 0;
     const int input_count = activeCraftingInputCount();
+    const int cols = activeCraftingCols();
+    const int rows = activeCraftingRows();
     
     for(int i = 0; i < input_count; ++i)
     {
+        if(!slotOccupied(crafting_input[i], crafting_counts[i]))
+            continue;
+
+        occupied_count++;
+
         BLOCK b = getBLOCK(crafting_input[i]);
         if(b == BLOCK_WOOD)
+        {
             log_count += crafting_counts[i];
-        else if(b == BLOCK_PLANKS_NORMAL)
-            plank_count += crafting_counts[i];
+            occupied_wood_slots++;
+        }
     }
 
     BLOCK_WDATA new_output = BLOCK_AIR;
     unsigned int new_count = 0;
 
     // Recipe 1: 1 Log → 4 Planks
-    if(log_count >= 1 && plank_count == 0)
+    if(log_count >= 1 && occupied_count == 1 && occupied_wood_slots == 1)
     {
         new_output = getBLOCKWDATA(BLOCK_PLANKS_NORMAL, 0);
         new_count = 4;
     }
-    // Recipe 2: 2 Planks → 1 Stick
-    else if(plank_count >= 2 && log_count == 0)
+    else
     {
-        new_output = getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::STICK));
-        new_count = 1;
-    }
-    // Recipe 3: 4 Planks → 1 Crafting Table
-    else if(plank_count >= 4 && log_count == 0)
-    {
-        new_output = getBLOCKWDATA(BLOCK_CRAFTING_TABLE, 0);
-        new_count = 1;
+        int table_slots[4] = {-1, -1, -1, -1};
+        int stick_a = -1, stick_b = -1;
+
+        // Recipe 2: 2x2 planks -> crafting table (works in 2x2 and 3x3)
+        if(findCraftingTableRecipe(crafting_input, crafting_counts, cols, rows, table_slots))
+        {
+            new_output = getBLOCKWDATA(BLOCK_CRAFTING_TABLE, 0);
+            new_count = 1;
+        }
+        // Recipe 3: 2 vertical planks -> stick
+        else if(findStickRecipe(crafting_input, crafting_counts, cols, rows, stick_a, stick_b))
+        {
+            new_output = getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::STICK));
+            new_count = 1;
+        }
     }
 
     crafting_output = new_output;
@@ -400,17 +494,22 @@ void InventoryTask::tryCraft()
 void InventoryTask::consumeCraftingIngredients()
 {
     const int input_count = activeCraftingInputCount();
+    const int cols = activeCraftingCols();
+    const int rows = activeCraftingRows();
 
     if(getBLOCK(crafting_output) == BLOCK_ITEM && getBLOCKDATA(crafting_output) == static_cast<uint8_t>(ItemTexture::STICK))
     {
-        int remaining = 2;
-        for(int i = 0; i < input_count && remaining > 0; ++i)
+        int s0 = -1, s1 = -1;
+        if(findStickRecipe(crafting_input, crafting_counts, cols, rows, s0, s1))
         {
-            if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+            const int slots[2] = {s0, s1};
+            for(int idx = 0; idx < 2; ++idx)
             {
-                int consume = std::min(remaining, static_cast<int>(crafting_counts[i]));
-                crafting_counts[i] -= consume;
-                remaining -= consume;
+                const int i = slots[idx];
+                if(i < 0 || i >= input_count || crafting_counts[i] == 0)
+                    continue;
+
+                crafting_counts[i]--;
                 if(crafting_counts[i] == 0)
                     crafting_input[i] = BLOCK_AIR;
             }
@@ -418,14 +517,16 @@ void InventoryTask::consumeCraftingIngredients()
     }
     else if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
     {
-        int remaining = 4;
-        for(int i = 0; i < input_count && remaining > 0; ++i)
+        int slots[4] = {-1, -1, -1, -1};
+        if(findCraftingTableRecipe(crafting_input, crafting_counts, cols, rows, slots))
         {
-            if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+            for(int idx = 0; idx < 4; ++idx)
             {
-                int consume = std::min(remaining, static_cast<int>(crafting_counts[i]));
-                crafting_counts[i] -= consume;
-                remaining -= consume;
+                const int i = slots[idx];
+                if(i < 0 || i >= input_count || crafting_counts[i] == 0)
+                    continue;
+
+                crafting_counts[i]--;
                 if(crafting_counts[i] == 0)
                     crafting_input[i] = BLOCK_AIR;
             }
