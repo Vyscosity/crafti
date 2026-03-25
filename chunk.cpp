@@ -727,8 +727,10 @@ void Chunk::makeTree(unsigned int x, unsigned int y, unsigned int z)
                 {
                     setGlobalBlockRelative(tx, ty, tz, BLOCK_WOOD);
                 }
-                else if(getBLOCK(getGlobalBlockRelative(tx, ty, tz)) == BLOCK_AIR)
+                else
                 {
+                    // During generation, unloaded neighboring chunks read as stone;
+                    // always queue leaf placement so full canopies appear at chunk edges.
                     setGlobalBlockRelative(tx, ty, tz, BLOCK_LEAVES);
                 }
             }

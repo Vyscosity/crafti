@@ -47,7 +47,6 @@ constexpr int table_output_y0 = 60;
 constexpr int table_output_x1 = 288;
 constexpr int table_output_y1 = 110;
 constexpr int table_panel_offset_y = 26; // Previously 6; moved down by 20px.
-constexpr int table_panel_bottom_crop = 10;
 
 // Crafting area coordinates in inventory2.png
 constexpr int crafting_src_x = 87;
@@ -172,7 +171,6 @@ void InventoryTask::craftingGridBounds(int &x, int &y, int &w, int &h) const
     if(panel_w < 1)
         panel_w = 1;
     int panel_h = (panel_w * static_cast<int>(table_tex->height)) / static_cast<int>(table_tex->width);
-    panel_h -= table_panel_bottom_crop;
     if(panel_h < 1)
         panel_h = 1;
 
@@ -220,7 +218,6 @@ void InventoryTask::craftingOutputBounds(int &x, int &y, int &w, int &h) const
     if(panel_w < 1)
         panel_w = 1;
     int panel_h = (panel_w * static_cast<int>(table_tex->height)) / static_cast<int>(table_tex->width);
-    panel_h -= table_panel_bottom_crop;
     if(panel_h < 1)
         panel_h = 1;
 
@@ -744,7 +741,6 @@ void InventoryTask::render()
             if(panel_w < 1)
                 panel_w = 1;
             int panel_h = (panel_w * static_cast<int>(table_tex->height)) / static_cast<int>(table_tex->width);
-            panel_h -= table_panel_bottom_crop;
             if(panel_h < 1)
                 panel_h = 1;
 
