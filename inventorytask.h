@@ -57,6 +57,8 @@ private:
     unsigned int crafting_counts[CRAFTING_INPUT_COUNT] = {};
     BLOCK_WDATA crafting_output = BLOCK_AIR;
     unsigned int crafting_output_count = 0;
+    int matched_recipe_slots[CRAFTING_INPUT_COUNT] = {};
+    int matched_recipe_slot_count = 0;
 };
 
 extern InventoryTask inventory_task;

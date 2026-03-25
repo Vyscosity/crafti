@@ -27,6 +27,7 @@ private:
     static unsigned int blocklist_top;
     //Black texture as background
     static TEXTURE *blocklist_background;
+    int current_page = 0;
 };
 
 extern BlockListTask block_list_task;

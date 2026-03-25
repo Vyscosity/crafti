@@ -95,78 +95,496 @@ bool slotOccupied(BLOCK_WDATA block, unsigned int count)
     return getBLOCK(block) != BLOCK_AIR && count > 0;
 }
 
-bool findStickRecipe(const BLOCK_WDATA input[], const unsigned int counts[], int cols, int rows, int &slot_a, int &slot_b)
+void craftingTablePanelRect(const TEXTURE &table_tex, int &panel_x, int &panel_y, int &panel_w, int &panel_h)
 {
-    int occupied = 0;
-    for(int i = 0; i < cols * rows; ++i)
-    {
-        if(!slotOccupied(input[i], counts[i]))
-            continue;
+    const int max_w = std::max(1, SCREEN_WIDTH - 8);
+    const int inventory_w = static_cast<int>(inventory2.width) * inv_draw_scale;
+    const int preferred_w = std::min(max_w, inventory_w);
 
-        if(getBLOCK(input[i]) != BLOCK_PLANKS_NORMAL)
-            return false;
+    panel_w = std::min(static_cast<int>(table_tex.width), preferred_w);
+    if(panel_w < 1)
+        panel_w = 1;
 
-        occupied++;
-    }
+    panel_h = (panel_w * static_cast<int>(table_tex.height)) / static_cast<int>(table_tex.width);
+    if(panel_h < 1)
+        panel_h = 1;
 
-    if(occupied != 2)
-        return false;
-
-    for(int row = 0; row < rows - 1; ++row)
-        for(int col = 0; col < cols; ++col)
-        {
-            const int s0 = row * cols + col;
-            const int s1 = (row + 1) * cols + col;
-            if(slotOccupied(input[s0], counts[s0]) && slotOccupied(input[s1], counts[s1]))
-            {
-                slot_a = s0;
-                slot_b = s1;
-                return true;
-            }
-        }
-
-    return false;
+    panel_x = (SCREEN_WIDTH - panel_w) / 2;
+    panel_y = table_panel_offset_y;
 }
 
-bool findCraftingTableRecipe(const BLOCK_WDATA input[], const unsigned int counts[], int cols, int rows, int slots[4])
+enum class RecipeMat : uint8_t {
+    Empty,
+    Planks,
+    WoodLog,
+    Cobble,
+    IronBlock,
+    GoldBlock,
+    DiamondBlock,
+    StickItem,
+    CoalItem,
+    RedstoneDustItem,
+    WheatCrop,
+};
+
+enum class RecipeOutputKind : uint8_t {
+    Block,
+    Item,
+};
+
+struct RecipeDef {
+    int cols;
+    int rows;
+    RecipeMat cells[9];
+    RecipeOutputKind out_kind;
+    uint16_t out_id;
+    unsigned int out_count;
+};
+
+struct RecipeMatch {
+    bool matched = false;
+    BLOCK_WDATA output = BLOCK_AIR;
+    unsigned int output_count = 0;
+    int slots[9] = {};
+    int slot_count = 0;
+};
+
+bool isPlanks(BLOCK b)
 {
-    int occupied = 0;
-    for(int i = 0; i < cols * rows; ++i)
-    {
-        if(!slotOccupied(input[i], counts[i]))
-            continue;
+    return b == BLOCK_PLANKS_NORMAL || b == BLOCK_PLANKS_DARK || b == BLOCK_PLANKS_BRIGHT;
+}
 
-        if(getBLOCK(input[i]) != BLOCK_PLANKS_NORMAL)
-            return false;
+bool blockMatchesRecipeMat(BLOCK_WDATA block, unsigned int count, RecipeMat mat)
+{
+    if(mat == RecipeMat::Empty)
+        return !slotOccupied(block, count);
 
-        occupied++;
-    }
-
-    if(occupied != 4)
+    if(!slotOccupied(block, count))
         return false;
 
-    for(int row = 0; row < rows - 1; ++row)
-        for(int col = 0; col < cols - 1; ++col)
+    const BLOCK b = getBLOCK(block);
+    switch(mat)
+    {
+    case RecipeMat::Planks:
+        return isPlanks(b);
+    case RecipeMat::WoodLog:
+        return b == BLOCK_WOOD;
+    case RecipeMat::Cobble:
+        return b == BLOCK_COBBLESTONE;
+    case RecipeMat::IronBlock:
+        return b == BLOCK_IRON;
+    case RecipeMat::GoldBlock:
+        return b == BLOCK_GOLD;
+    case RecipeMat::DiamondBlock:
+        return b == BLOCK_DIAMOND;
+    case RecipeMat::StickItem:
+        return b == BLOCK_ITEM && getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::STICK);
+    case RecipeMat::CoalItem:
+        if(b != BLOCK_ITEM)
+            return false;
+        return getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::COAL) ||
+               getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::CHARCOAL);
+    case RecipeMat::RedstoneDustItem:
+        return b == BLOCK_ITEM && getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::REDSTONE_DUST);
+    case RecipeMat::WheatCrop:
+        return b == BLOCK_WHEAT;
+    case RecipeMat::Empty:
+    default:
+        return false;
+    }
+}
+
+BLOCK_WDATA recipeOutput(const RecipeDef &recipe)
+{
+    if(recipe.out_kind == RecipeOutputKind::Block)
+        return getBLOCKWDATA(static_cast<BLOCK>(recipe.out_id), 0);
+
+    return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(recipe.out_id));
+}
+
+static const RecipeDef recipes[] = {
+    // 1 log -> 4 planks
+    {1, 1,
+     {RecipeMat::WoodLog, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Block, BLOCK_PLANKS_NORMAL, 4},
+
+    // 2 planks vertical -> 4 sticks
+    {1, 2,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STICK), 4},
+
+    // 2x2 planks -> crafting table
+    {2, 2,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
+      RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Block, BLOCK_CRAFTING_TABLE, 1},
+
+    // 3x3 cobble ring -> furnace
+    {3, 3,
+     {RecipeMat::Cobble, RecipeMat::Cobble, RecipeMat::Cobble,
+      RecipeMat::Cobble, RecipeMat::Empty, RecipeMat::Cobble,
+      RecipeMat::Cobble, RecipeMat::Cobble, RecipeMat::Cobble},
+     RecipeOutputKind::Block, BLOCK_FURNACE, 1},
+
+    // coal over stick -> 4 torches
+    {1, 2,
+     {RecipeMat::CoalItem, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Block, BLOCK_TORCH, 4},
+
+    // redstone dust over stick -> redstone torch
+    {1, 2,
+     {RecipeMat::RedstoneDustItem, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Block, BLOCK_REDSTONE_TORCH, 1},
+
+    // 2 planks -> pressure plate
+    {2, 1,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Block, BLOCK_PRESSURE_PLATE, 1},
+
+    // 3 wheat -> bread
+    {3, 1,
+     {RecipeMat::WheatCrop, RecipeMat::WheatCrop, RecipeMat::WheatCrop,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::BREAD), 1},
+
+    // 2x3 planks -> door
+    {2, 3,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
+      RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Block, BLOCK_DOOR, 1},
+
+    // bowl
+    {3, 2,
+     {RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Planks,
+      RecipeMat::Empty, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::BOWL), 1},
+
+    // Wooden tools
+    {3, 3,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_PICKAXE), 1},
+    {3, 3,
+     {RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Planks, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_AXE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Planks,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Planks,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_AXE), 1},
+    {3, 3,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Planks, RecipeMat::Planks,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_SHOVEL), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_SWORD), 1},
+
+    // Stone tools
+    {3, 3,
+     {RecipeMat::Cobble, RecipeMat::Cobble, RecipeMat::Cobble,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_PICKAXE), 1},
+    {3, 3,
+     {RecipeMat::Cobble, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Cobble, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_AXE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Cobble,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Cobble,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_AXE), 1},
+    {3, 3,
+     {RecipeMat::Cobble, RecipeMat::Cobble, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Cobble, RecipeMat::Cobble,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Cobble, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_SHOVEL), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Cobble, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Cobble, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_SWORD), 1},
+
+    // Iron tools
+    {3, 3,
+     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_PICKAXE), 1},
+    {3, 3,
+     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::IronBlock, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_AXE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_AXE), 1},
+    {3, 3,
+     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_SHOVEL), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_SWORD), 1},
+
+    // Gold tools
+    {3, 3,
+     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_PICKAXE), 1},
+    {3, 3,
+     {RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::GoldBlock, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_AXE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::GoldBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::GoldBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_AXE), 1},
+    {3, 3,
+     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_SHOVEL), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_SWORD), 1},
+
+    // Diamond tools
+    {3, 3,
+     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_PICKAXE), 1},
+    {3, 3,
+     {RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::DiamondBlock, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_AXE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::DiamondBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::DiamondBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_AXE), 1},
+    {3, 3,
+     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_HOE), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_SHOVEL), 1},
+    {3, 3,
+     {RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_SWORD), 1},
+
+    // Armor (iron)
+    {3, 2,
+     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
+      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_HELMET), 1},
+    {3, 3,
+     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
+      RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_CHESTPLATE), 1},
+    {3, 3,
+     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
+      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_LEGGINGS), 1},
+    {3, 2,
+     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_BOOTS), 1},
+
+    // Armor (gold)
+    {3, 2,
+     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
+      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_HELMET), 1},
+    {3, 3,
+     {RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
+      RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
+      RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_CHESTPLATE), 1},
+    {3, 3,
+     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
+      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
+      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_LEGGINGS), 1},
+    {3, 2,
+     {RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
+      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_BOOTS), 1},
+
+    // Armor (diamond)
+    {3, 2,
+     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
+      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_HELMET), 1},
+    {3, 3,
+     {RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
+      RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
+      RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_CHESTPLATE), 1},
+    {3, 3,
+     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
+      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
+      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_LEGGINGS), 1},
+    {3, 2,
+     {RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
+      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_BOOTS), 1},
+
+    // Bucket: iron in a V shape
+    {3, 2,
+     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+      RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
+      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::BUCKET), 1},
+};
+
+bool matchRecipeAt(const RecipeDef &recipe,
+                   const BLOCK_WDATA input[], const unsigned int counts[],
+                   int cols, int rows,
+                   int offset_col, int offset_row,
+                   RecipeMatch &out_match)
+{
+    out_match.matched = false;
+    out_match.slot_count = 0;
+
+    for(int row = 0; row < rows; ++row)
+    {
+        for(int col = 0; col < cols; ++col)
         {
-            const int s0 = row * cols + col;
-            const int s1 = row * cols + (col + 1);
-            const int s2 = (row + 1) * cols + col;
-            const int s3 = (row + 1) * cols + (col + 1);
-
-            if(slotOccupied(input[s0], counts[s0]) &&
-               slotOccupied(input[s1], counts[s1]) &&
-               slotOccupied(input[s2], counts[s2]) &&
-               slotOccupied(input[s3], counts[s3]))
+            RecipeMat expected = RecipeMat::Empty;
+            if(col >= offset_col && col < offset_col + recipe.cols &&
+               row >= offset_row && row < offset_row + recipe.rows)
             {
-                slots[0] = s0;
-                slots[1] = s1;
-                slots[2] = s2;
-                slots[3] = s3;
-                return true;
+                const int rcol = col - offset_col;
+                const int rrow = row - offset_row;
+                expected = recipe.cells[rrow * recipe.cols + rcol];
             }
-        }
 
-    return false;
+            const int slot = row * cols + col;
+            if(!blockMatchesRecipeMat(input[slot], counts[slot], expected))
+                return false;
+
+            if(expected != RecipeMat::Empty)
+                out_match.slots[out_match.slot_count++] = slot;
+        }
+    }
+
+    out_match.matched = true;
+    out_match.output = recipeOutput(recipe);
+    out_match.output_count = recipe.out_count;
+    return true;
+}
+
+RecipeMatch findMatchingRecipe(const BLOCK_WDATA input[], const unsigned int counts[], int cols, int rows)
+{
+    RecipeMatch match;
+
+    for(const RecipeDef &recipe : recipes)
+    {
+        if(recipe.cols > cols || recipe.rows > rows)
+            continue;
+
+        for(int row_off = 0; row_off <= rows - recipe.rows; ++row_off)
+            for(int col_off = 0; col_off <= cols - recipe.cols; ++col_off)
+                if(matchRecipeAt(recipe, input, counts, cols, rows, col_off, row_off, match))
+                    return match;
+    }
+
+    return match;
 }
 }
 
@@ -248,15 +666,8 @@ void InventoryTask::craftingGridBounds(int &x, int &y, int &w, int &h) const
         return;
     }
 
-    int panel_w = std::min(static_cast<int>(table_tex->width), SCREEN_WIDTH - 8);
-    if(panel_w < 1)
-        panel_w = 1;
-    int panel_h = (panel_w * static_cast<int>(table_tex->height)) / static_cast<int>(table_tex->width);
-    if(panel_h < 1)
-        panel_h = 1;
-
-    int panel_x = (SCREEN_WIDTH - panel_w) / 2;
-    int panel_y = table_panel_offset_y;
+    int panel_x = 0, panel_y = 0, panel_w = 0, panel_h = 0;
+    craftingTablePanelRect(*table_tex, panel_x, panel_y, panel_w, panel_h);
 
     x = panel_x + (table_input_x0 * panel_w) / static_cast<int>(table_tex->width);
     y = panel_y + (table_input_y0 * panel_h) / static_cast<int>(table_tex->height);
@@ -295,15 +706,8 @@ void InventoryTask::craftingOutputBounds(int &x, int &y, int &w, int &h) const
         return;
     }
 
-    int panel_w = std::min(static_cast<int>(table_tex->width), SCREEN_WIDTH - 8);
-    if(panel_w < 1)
-        panel_w = 1;
-    int panel_h = (panel_w * static_cast<int>(table_tex->height)) / static_cast<int>(table_tex->width);
-    if(panel_h < 1)
-        panel_h = 1;
-
-    int panel_x = (SCREEN_WIDTH - panel_w) / 2;
-    int panel_y = table_panel_offset_y;
+    int panel_x = 0, panel_y = 0, panel_w = 0, panel_h = 0;
+    craftingTablePanelRect(*table_tex, panel_x, panel_y, panel_w, panel_h);
 
     x = panel_x + (table_output_x0 * panel_w) / static_cast<int>(table_tex->width);
     y = panel_y + (table_output_y0 * panel_h) / static_cast<int>(table_tex->height);
@@ -437,113 +841,41 @@ bool InventoryTask::isHoldingItem() const
 
 void InventoryTask::tryCraft()
 {
-    int log_count = 0;
-    int occupied_count = 0;
-    int occupied_wood_slots = 0;
-    const int input_count = activeCraftingInputCount();
+    matched_recipe_slot_count = 0;
+
     const int cols = activeCraftingCols();
     const int rows = activeCraftingRows();
-    
-    for(int i = 0; i < input_count; ++i)
+
+    RecipeMatch match = findMatchingRecipe(crafting_input, crafting_counts, cols, rows);
+    if(match.matched)
     {
-        if(!slotOccupied(crafting_input[i], crafting_counts[i]))
-            continue;
-
-        occupied_count++;
-
-        BLOCK b = getBLOCK(crafting_input[i]);
-        if(b == BLOCK_WOOD)
-        {
-            log_count += crafting_counts[i];
-            occupied_wood_slots++;
-        }
+        crafting_output = match.output;
+        crafting_output_count = match.output_count;
+        matched_recipe_slot_count = match.slot_count;
+        for(int i = 0; i < matched_recipe_slot_count; ++i)
+            matched_recipe_slots[i] = match.slots[i];
+        return;
     }
 
-    BLOCK_WDATA new_output = BLOCK_AIR;
-    unsigned int new_count = 0;
-
-    // Recipe 1: 1 Log → 4 Planks
-    if(log_count >= 1 && occupied_count == 1 && occupied_wood_slots == 1)
-    {
-        new_output = getBLOCKWDATA(BLOCK_PLANKS_NORMAL, 0);
-        new_count = 4;
-    }
-    else
-    {
-        int table_slots[4] = {-1, -1, -1, -1};
-        int stick_a = -1, stick_b = -1;
-
-        // Recipe 2: 2x2 planks -> crafting table (works in 2x2 and 3x3)
-        if(findCraftingTableRecipe(crafting_input, crafting_counts, cols, rows, table_slots))
-        {
-            new_output = getBLOCKWDATA(BLOCK_CRAFTING_TABLE, 0);
-            new_count = 1;
-        }
-        // Recipe 3: 2 vertical planks -> stick
-        else if(findStickRecipe(crafting_input, crafting_counts, cols, rows, stick_a, stick_b))
-        {
-            new_output = getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::STICK));
-            new_count = 1;
-        }
-    }
-
-    crafting_output = new_output;
-    crafting_output_count = new_count;
+    crafting_output = BLOCK_AIR;
+    crafting_output_count = 0;
 }
 
 void InventoryTask::consumeCraftingIngredients()
 {
+    if(getBLOCK(crafting_output) == BLOCK_AIR || crafting_output_count == 0 || matched_recipe_slot_count <= 0)
+        return;
+
     const int input_count = activeCraftingInputCount();
-    const int cols = activeCraftingCols();
-    const int rows = activeCraftingRows();
-
-    if(getBLOCK(crafting_output) == BLOCK_ITEM && getBLOCKDATA(crafting_output) == static_cast<uint8_t>(ItemTexture::STICK))
+    for(int idx = 0; idx < matched_recipe_slot_count; ++idx)
     {
-        int s0 = -1, s1 = -1;
-        if(findStickRecipe(crafting_input, crafting_counts, cols, rows, s0, s1))
-        {
-            const int slots[2] = {s0, s1};
-            for(int idx = 0; idx < 2; ++idx)
-            {
-                const int i = slots[idx];
-                if(i < 0 || i >= input_count || crafting_counts[i] == 0)
-                    continue;
+        const int slot = matched_recipe_slots[idx];
+        if(slot < 0 || slot >= input_count || crafting_counts[slot] == 0)
+            continue;
 
-                crafting_counts[i]--;
-                if(crafting_counts[i] == 0)
-                    crafting_input[i] = BLOCK_AIR;
-            }
-        }
-    }
-    else if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
-    {
-        int slots[4] = {-1, -1, -1, -1};
-        if(findCraftingTableRecipe(crafting_input, crafting_counts, cols, rows, slots))
-        {
-            for(int idx = 0; idx < 4; ++idx)
-            {
-                const int i = slots[idx];
-                if(i < 0 || i >= input_count || crafting_counts[i] == 0)
-                    continue;
-
-                crafting_counts[i]--;
-                if(crafting_counts[i] == 0)
-                    crafting_input[i] = BLOCK_AIR;
-            }
-        }
-    }
-    else if(getBLOCK(crafting_output) == BLOCK_PLANKS_NORMAL)
-    {
-        for(int i = 0; i < input_count; ++i)
-        {
-            if(getBLOCK(crafting_input[i]) == BLOCK_WOOD && crafting_counts[i] > 0)
-            {
-                crafting_counts[i]--;
-                if(crafting_counts[i] == 0)
-                    crafting_input[i] = BLOCK_AIR;
-                break;
-            }
-        }
+        crafting_counts[slot]--;
+        if(crafting_counts[slot] == 0)
+            crafting_input[slot] = BLOCK_AIR;
     }
 }
 
@@ -568,7 +900,7 @@ void InventoryTask::handleLeftClick(int slot)
             else if(held_block == crafting_output)
             {
                 // Add output to held items
-                held_count++;
+                held_count += crafting_output_count;
                 consumeCraftingIngredients();
                 
                 crafting_output = BLOCK_AIR;
@@ -672,7 +1004,7 @@ void InventoryTask::handleRightClick(int slot)
             if(!isHoldingItem())
             {
                 held_block = crafting_output;
-                held_count = 1;
+                held_count = crafting_output_count;
                 consumeCraftingIngredients();
                 
                 crafting_output = BLOCK_AIR;
@@ -682,7 +1014,7 @@ void InventoryTask::handleRightClick(int slot)
             }
             else if(held_block == crafting_output)
             {
-                held_count++;
+                held_count += crafting_output_count;
                 consumeCraftingIngredients();
                 
                 crafting_output = BLOCK_AIR;
@@ -869,15 +1201,8 @@ void InventoryTask::render()
     {
         if(TEXTURE *table_tex = craftingTableTexture())
         {
-            int panel_w = std::min(static_cast<int>(table_tex->width), SCREEN_WIDTH - 8);
-            if(panel_w < 1)
-                panel_w = 1;
-            int panel_h = (panel_w * static_cast<int>(table_tex->height)) / static_cast<int>(table_tex->width);
-            if(panel_h < 1)
-                panel_h = 1;
-
-            const int panel_x = (SCREEN_WIDTH - panel_w) / 2;
-            const int panel_y = table_panel_offset_y;
+            int panel_x = 0, panel_y = 0, panel_w = 0, panel_h = 0;
+            craftingTablePanelRect(*table_tex, panel_x, panel_y, panel_w, panel_h);
             drawTexture(*table_tex, *screen,
                         0, 0,
                         table_tex->width, table_tex->height,
