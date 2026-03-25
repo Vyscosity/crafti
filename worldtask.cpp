@@ -305,6 +305,9 @@ void WorldTask::logic()
         if(getBLOCK(block_to_place) == BLOCK_AIR)
             return;
 
+        if(getBLOCK(block_to_place) == BLOCK_ITEM)
+            return;
+
         // When placing fluid onto a non-full fluid block of the same type, "fill" it
         if(current_block != block_to_place
            && ((getBLOCK(current_block) == BLOCK_WATER && getBLOCK(block_to_place) == BLOCK_WATER)

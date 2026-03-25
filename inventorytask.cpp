@@ -10,9 +10,11 @@
 #include "blockrenderer.h"
 #include "font.h"
 #include "inventory.h"
+#include "itemicons.h"
 #include "worldtask.h"
 
 #include "textures/crafting_table.h"
+#include "textures/items.h"
 #include "textures/inventory2.h"
 
 InventoryTask inventory_task;
@@ -309,32 +311,40 @@ void InventoryTask::drawSlotItem(TEXTURE &tex, int slot, int x, int y)
     if(getBLOCK(block) == BLOCK_AIR || count == 0)
         return;
 
-#ifdef _TINSPIRE
-    const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
-    drawTexture(*terrain_resized, tex,
-                icon_tex.left, icon_tex.top,
-                icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
-                x, y,
-                inv_draw_slot_size, inv_draw_slot_size);
-#else
-    if(getBLOCK(block) == BLOCK_DOOR)
+    // Handle item rendering (BLOCK_ITEM stores ItemTexture in metadata)
+    if(getBLOCK(block) == BLOCK_ITEM)
     {
-        const int door_w = 16;
-        const int door_h = 32;
-        // DoorRenderer applies an internal +4 x-offset.
-        const int preview_x = x + (inv_draw_slot_size - door_w) / 2 - 4;
-        const int preview_y = y + (inv_draw_slot_size - door_h) / 2;
-        global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+        drawItemIcon(block, tex, x, y, inv_draw_slot_size);
     }
     else
     {
-        const int icon_w = 24;
-        const int icon_h = 24;
-        const int preview_x = x + (inv_draw_slot_size - icon_w) / 2;
-        const int preview_y = y + (inv_draw_slot_size - icon_h) / 2;
-        global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
-    }
+#ifdef _TINSPIRE
+        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+        drawTexture(*terrain_resized, tex,
+                    icon_tex.left, icon_tex.top,
+                    icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                    x, y,
+                    inv_draw_slot_size, inv_draw_slot_size);
+#else
+        if(getBLOCK(block) == BLOCK_DOOR)
+        {
+            const int door_w = 16;
+            const int door_h = 32;
+            // DoorRenderer applies an internal +4 x-offset.
+            const int preview_x = x + (inv_draw_slot_size - door_w) / 2 - 4;
+            const int preview_y = y + (inv_draw_slot_size - door_h) / 2;
+            global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+        }
+        else
+        {
+            const int icon_w = 24;
+            const int icon_h = 24;
+            const int preview_x = x + (inv_draw_slot_size - icon_w) / 2;
+            const int preview_y = y + (inv_draw_slot_size - icon_h) / 2;
+            global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
+        }
 #endif
+    }
 
     char count_text[12];
     snprintf(count_text, sizeof(count_text), "%u", count);
@@ -370,7 +380,13 @@ void InventoryTask::tryCraft()
         new_output = getBLOCKWDATA(BLOCK_PLANKS_NORMAL, 0);
         new_count = 4;
     }
-    // Recipe 2: 4 Planks → 1 Crafting Table
+    // Recipe 2: 2 Planks → 1 Stick
+    else if(plank_count >= 2 && log_count == 0)
+    {
+        new_output = getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::STICK));
+        new_count = 1;
+    }
+    // Recipe 3: 4 Planks → 1 Crafting Table
     else if(plank_count >= 4 && log_count == 0)
     {
         new_output = getBLOCKWDATA(BLOCK_CRAFTING_TABLE, 0);
@@ -385,7 +401,22 @@ void InventoryTask::consumeCraftingIngredients()
 {
     const int input_count = activeCraftingInputCount();
 
-    if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
+    if(getBLOCK(crafting_output) == BLOCK_ITEM && getBLOCKDATA(crafting_output) == static_cast<uint8_t>(ItemTexture::STICK))
+    {
+        int remaining = 2;
+        for(int i = 0; i < input_count && remaining > 0; ++i)
+        {
+            if(getBLOCK(crafting_input[i]) == BLOCK_PLANKS_NORMAL)
+            {
+                int consume = std::min(remaining, static_cast<int>(crafting_counts[i]));
+                crafting_counts[i] -= consume;
+                remaining -= consume;
+                if(crafting_counts[i] == 0)
+                    crafting_input[i] = BLOCK_AIR;
+            }
+        }
+    }
+    else if(getBLOCK(crafting_output) == BLOCK_CRAFTING_TABLE)
     {
         int remaining = 4;
         for(int i = 0; i < input_count && remaining > 0; ++i)
@@ -792,20 +823,27 @@ void InventoryTask::render()
             const unsigned int count = crafting_counts[craft_slot];
             if(getBLOCK(block) != BLOCK_AIR && count > 0)
             {
+                if(getBLOCK(block) == BLOCK_ITEM)
+                {
+                    drawItemIcon(block, *screen, x0, y0, std::min(slot_w, slot_h));
+                }
+                else
+                {
 #ifdef _TINSPIRE
-                const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
-                drawTexture(*terrain_resized, *screen,
-                            icon_tex.left, icon_tex.top,
-                            icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
-                            x0, y0,
-                            slot_w, slot_h);
+                    const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+                    drawTexture(*terrain_resized, *screen,
+                                icon_tex.left, icon_tex.top,
+                                icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                                x0, y0,
+                                slot_w, slot_h);
 #else
-                const int icon_w = 24;
-                const int icon_h = 24;
-                const int preview_x = x0 + (slot_w - icon_w) / 2;
-                const int preview_y = y0 + (slot_h - icon_h) / 2;
-                global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
+                    const int icon_w = 24;
+                    const int icon_h = 24;
+                    const int preview_x = x0 + (slot_w - icon_w) / 2;
+                    const int preview_y = y0 + (slot_h - icon_h) / 2;
+                    global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
 #endif
+                }
                 
                 char count_text[12];
                 snprintf(count_text, sizeof(count_text), "%u", count);
@@ -819,20 +857,27 @@ void InventoryTask::render()
     
     if(getBLOCK(crafting_output) != BLOCK_AIR && crafting_output_count > 0)
     {
+        if(getBLOCK(crafting_output) == BLOCK_ITEM)
+        {
+            drawItemIcon(crafting_output, *screen, output_draw_x, output_draw_y, std::min(output_draw_w, output_draw_h));
+        }
+        else
+        {
 #ifdef _TINSPIRE
-        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(crafting_output).resized;
-        drawTexture(*terrain_resized, *screen,
-                    icon_tex.left, icon_tex.top,
-                    icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
-                    output_draw_x, output_draw_y,
-                    output_draw_w, output_draw_h);
+            const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(crafting_output).resized;
+            drawTexture(*terrain_resized, *screen,
+                        icon_tex.left, icon_tex.top,
+                        icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                        output_draw_x, output_draw_y,
+                        output_draw_w, output_draw_h);
 #else
-        const int icon_w = 24;
-        const int icon_h = 24;
-        const int preview_x = output_draw_x + (output_draw_w - icon_w) / 2;
-        const int preview_y = output_draw_y + (output_draw_h - icon_h) / 2;
-        global_block_renderer.drawPreview(crafting_output, *screen, preview_x, preview_y);
+            const int icon_w = 24;
+            const int icon_h = 24;
+            const int preview_x = output_draw_x + (output_draw_w - icon_w) / 2;
+            const int preview_y = output_draw_y + (output_draw_h - icon_h) / 2;
+            global_block_renderer.drawPreview(crafting_output, *screen, preview_x, preview_y);
 #endif
+        }
         
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", crafting_output_count);
@@ -844,7 +889,14 @@ void InventoryTask::render()
     SDL_GetMouseState(&mx, &my);
     if(getBLOCK(held_block) != BLOCK_AIR && held_count > 0)
     {
-        global_block_renderer.drawPreview(held_block, *screen, mx - 8, my - (getBLOCK(held_block) == BLOCK_DOOR ? 14 : 10));
+        if(getBLOCK(held_block) == BLOCK_ITEM)
+        {
+            const int held_size = inv_draw_slot_size;
+            drawItemIcon(held_block, *screen, mx - held_size / 2, my - held_size / 2, held_size);
+        }
+        else
+            global_block_renderer.drawPreview(held_block, *screen, mx - 8, my - (getBLOCK(held_block) == BLOCK_DOOR ? 14 : 10));
+
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", held_count);
         drawString(count_text, 0xFFFF, *screen, mx + 8, my + 8);
@@ -852,15 +904,20 @@ void InventoryTask::render()
 #else
     if(getBLOCK(held_block) != BLOCK_AIR && held_count > 0)
     {
-        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(held_block).resized;
         const int held_size = inv_draw_slot_size;
         const int held_x = std::max(0, std::min(cursor_x - held_size / 2, SCREEN_WIDTH - held_size));
         const int held_y = std::max(0, std::min(cursor_y - held_size / 2, SCREEN_HEIGHT - held_size));
-        drawTexture(*terrain_resized, *screen,
-                    icon_tex.left, icon_tex.top,
-                    icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
-                    held_x, held_y,
-                    held_size, held_size);
+        if(getBLOCK(held_block) == BLOCK_ITEM)
+            drawItemIcon(held_block, *screen, held_x, held_y, held_size);
+        else
+        {
+            const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(held_block).resized;
+            drawTexture(*terrain_resized, *screen,
+                        icon_tex.left, icon_tex.top,
+                        icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                        held_x, held_y,
+                        held_size, held_size);
+        }
 
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", held_count);

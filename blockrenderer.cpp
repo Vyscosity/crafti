@@ -15,6 +15,7 @@
 #include "torchrenderer.h"
 #include "wheatrenderer.h"
 #include "wirerenderer.h"
+#include "itemicons.h"
 
 UniversalBlockRenderer global_block_renderer;
 
@@ -509,6 +510,11 @@ PowerState UniversalBlockRenderer::powersSide(const BLOCK_WDATA block, BLOCK_SID
 
 const char *UniversalBlockRenderer::getName(const BLOCK_WDATA block)
 {
+    if(getBLOCK(block) == BLOCK_ITEM)
+    {
+        return getItemName(block);
+    }
+
     return map[getBLOCK(block)]->getName(block);
 }
 

@@ -6,6 +6,7 @@
 #include "texturetools.h"
 #include "blockrenderer.h"
 #include "font.h"
+#include "itemicons.h"
 
 #include "textures/inventory.h"
 #include "textures/inventory2.h"
@@ -54,6 +55,13 @@ void Inventory::draw(TEXTURE &tex)
         const int slot_y = inventory_y + hotbar_slots_top;
         const int slot_px = hotbar_slot_size;
 
+        if(getBLOCK(block) == BLOCK_ITEM)
+        {
+            drawItemIcon(block, tex, slot_x, slot_y, slot_px);
+        }
+        else
+        {
+
     #ifdef _TINSPIRE
         const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
         drawTexture(*terrain_resized, tex,
@@ -80,6 +88,7 @@ void Inventory::draw(TEXTURE &tex)
             global_block_renderer.drawPreview(block, tex, preview_x, preview_y);
         }
 #endif
+        }
 
         char count_text[12];
         snprintf(count_text, sizeof(count_text), "%u", counts[i]);

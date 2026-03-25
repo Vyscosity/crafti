@@ -42,6 +42,9 @@ constexpr BLOCK BLOCK_DIAMOND = 28;
 constexpr BLOCK BLOCK_NETHERRACK = 29;
 constexpr BLOCK BLOCK_NORMAL_LAST = BLOCK_NETHERRACK;
 
+// Special block ID for items (stores ItemTexture in metadata)
+constexpr BLOCK BLOCK_ITEM = 254;
+
 //Special blocks begin here
 constexpr int BLOCK_SPECIAL_START = 127;
 constexpr BLOCK BLOCK_TORCH = 127; //Data: Direction (BLOCK_SIDE)
