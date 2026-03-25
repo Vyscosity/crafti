@@ -7,6 +7,8 @@
 class InventoryTask : public Task
 {
 public:
+    void openPlayerInventory();
+    void openCraftingTable();
     virtual void makeCurrent() override;
     virtual void render() override;
     virtual void logic() override;
@@ -15,11 +17,18 @@ private:
     // Inventory slot constants
     static constexpr int INVALID_SLOT = -1;
     static constexpr int CRAFTING_SLOT_OFFSET = 36; // After hotbar (9) + storage (27)
-    static constexpr int CRAFTING_INPUT_COUNT = 4; // 2x2 grid
+    static constexpr int CRAFTING_INPUT_COUNT = 9; // Up to 3x3 grid
     static constexpr int CRAFTING_OUTPUT_SLOT = CRAFTING_SLOT_OFFSET + CRAFTING_INPUT_COUNT;
     
+    void activate();
     int slotFromMouse(int mouse_x, int mouse_y) const;
     int craftingSlotFromMouse(int mouse_x, int mouse_y) const;
+    int activeCraftingInputCount() const;
+    int activeCraftingCols() const;
+    int activeCraftingRows() const;
+    void craftingGridBounds(int &x, int &y, int &w, int &h) const;
+    void craftingOutputBounds(int &x, int &y, int &w, int &h) const;
+    void consumeCraftingIngredients();
     void drawSlotItem(TEXTURE &tex, int slot, int x, int y);
     bool isHoldingItem() const;
     void handleLeftClick(int slot);
@@ -41,6 +50,7 @@ private:
     bool nspire_tp_had_contact = false;
     uint16_t nspire_tp_last_x = 0;
     uint16_t nspire_tp_last_y = 0;
+    bool crafting_table_mode = false;
     
     // Crafting table
     BLOCK_WDATA crafting_input[CRAFTING_INPUT_COUNT] = {};

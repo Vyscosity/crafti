@@ -527,6 +527,7 @@ void Chunk::generate()
     const PerlinNoise &noise = world.noiseGenerator();
 
     constexpr int max_trees = (Chunk::SIZE * Chunk::SIZE) / 45;
+    constexpr int sea_level = 12;
     int trees = 0;
 
     for(int x = 0; x < SIZE; x++)
@@ -536,15 +537,15 @@ void Chunk::generate()
             GLFix nz = (GLFix(z)/Chunk::SIZE + this->z)/4;
 
             GLFix e1 = noise.noise(nx, nz, 10);
-            GLFix e2 = noise.noise(nx * 2, nz * 2, 20) * GLFix(0.5f);
-            GLFix e3 = noise.noise(nx * 4, nz * 4, 30) * GLFix(0.25f);
-            
-            GLFix noise_val = (e1 + e2 + e3) / GLFix(1.75f);
-            
-            // Exponentiate to make it more mountainous like Minecraft
-            noise_val = noise_val * noise_val * GLFix(1.5f);
+            GLFix e2 = noise.noise(nx * 2, nz * 2, 20) * GLFix(0.65f);
+            GLFix e3 = noise.noise(nx * 4, nz * 4, 30) * GLFix(0.35f);
+            GLFix e4 = noise.noise(nx * 8, nz * 8, 40) * GLFix(0.20f);
 
-            int world_gen_min = 8, world_gen_max = World::HEIGHT * Chunk::SIZE * 0.7;
+            GLFix noise_val = (e1 + e2 + e3 + e4) / GLFix(2.20f);
+            // Push valleys down and peaks up for less flat terrain.
+            noise_val = (noise_val + noise_val * noise_val) / 2;
+
+            int world_gen_min = 4, world_gen_max = World::HEIGHT * Chunk::SIZE - 3;
             int height = world_gen_min + (noise_val * (world_gen_max - world_gen_min)).round();
             int height_left = height - this->y * Chunk::SIZE;
             int height_here = std::min(height_left, Chunk::SIZE);
@@ -580,7 +581,7 @@ void Chunk::generate()
                     else
                         blocks[x][y][z] = BLOCK_STONE;
                 }
-                else if(height > 10)
+                else if(height > sea_level + 1)
                 {
                     if(to_surface == 1)
                     {
@@ -594,7 +595,23 @@ void Chunk::generate()
                 else
                     blocks[x][y][z] = BLOCK_SAND;
             }
-            if(trees < max_trees && height_left >= 0 && height_left <= Chunk::SIZE && noise.noise(GLFix(x)/Chunk::SIZE + this->x, GLFix(z)/Chunk::SIZE + this->z, 25) < GLFix(0.3f))
+
+            const int local_sea_level = sea_level - this->y * Chunk::SIZE;
+            int water_start = std::max(height_left, 0);
+            // Keep water one block below the prior sea-line so beaches stay sand-first.
+            int water_end = std::min(local_sea_level, Chunk::SIZE);
+            for(int y = water_start; y < water_end; ++y)
+            {
+                if(blocks[x][y][z] == BLOCK_AIR)
+                    blocks[x][y][z] = getBLOCKWDATA(BLOCK_WATER, RANGE_WATER);
+            }
+
+            if(trees < max_trees
+                && height > sea_level + 1
+                && height_left > 0
+                && height_left <= Chunk::SIZE
+                && blocks[x][height_left - 1][z] == BLOCK_GRASS
+                && noise.noise(GLFix(x)/Chunk::SIZE + this->x, GLFix(z)/Chunk::SIZE + this->z, 25) < GLFix(0.3f))
             {
                 makeTree(x, height_here, z);
                 trees++;
@@ -672,30 +689,49 @@ bool Chunk::isBlockPowered(const int x, const int y, const int z, bool ignore_re
 
 void Chunk::makeTree(unsigned int x, unsigned int y, unsigned int z)
 {
-    int max_height = World::HEIGHT * Chunk::SIZE - (y + this->y * Chunk::SIZE);
+    // Minecraft-like oak template (10 layers, 7x7 each).
+    static const int tree[10][7][7] = {
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 4, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 4, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 4, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 5, 5, 5, 5, 5, 0 },{ 5, 5, 5, 4, 5, 5, 5 },{ 0, 5, 5, 5, 5, 5, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 0, 5, 4, 5, 0, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 5, 5, 5, 5, 5, 0 },{ 0, 5, 5, 4, 5, 5, 0 },{ 0, 5, 5, 5, 5, 5, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 5, 4, 5, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 5, 5, 4, 5, 5, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 5, 5, 5, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+        {{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 5, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 },{ 0, 0, 0, 0, 0, 0, 0 }},
+    };
 
-    max_height = std::min(max_height - 4, rand() & 0x5);
-
-    if(max_height < 5)
+    int max_world_y = World::HEIGHT * Chunk::SIZE;
+    int base_y = static_cast<int>(y) + this->y * Chunk::SIZE;
+    if(base_y + 10 >= max_world_y)
         return;
 
-    for(unsigned int y1 = y; y1 < y + max_height; ++y1)
-        setGlobalBlockRelative(x, y1, z, BLOCK_WOOD);
+    int trunk_x = static_cast<int>(x);
+    int trunk_z = static_cast<int>(z);
 
-    for(unsigned int y1 = y + max_height; y1 < y + max_height + 2; ++y1)
-    {
-        setGlobalBlockRelative(x, y1, z-1, BLOCK_LEAVES);
-        setGlobalBlockRelative(x-1, y1, z-1, BLOCK_LEAVES);
-        setGlobalBlockRelative(x+1, y1, z-1, BLOCK_LEAVES);
-        setGlobalBlockRelative(x, y1, z, BLOCK_LEAVES);
-        setGlobalBlockRelative(x-1, y1, z, BLOCK_LEAVES);
-        setGlobalBlockRelative(x+1, y1, z, BLOCK_LEAVES);
-        setGlobalBlockRelative(x, y1, z+1, BLOCK_LEAVES);
-        setGlobalBlockRelative(x-1, y1, z+1, BLOCK_LEAVES);
-        setGlobalBlockRelative(x+1, y1, z+1, BLOCK_LEAVES);
-    }
+    for(int layer = 0; layer < 10; ++layer)
+        for(int dz = -3; dz <= 3; ++dz)
+            for(int dx = -3; dx <= 3; ++dx)
+            {
+                int block = tree[layer][dz + 3][dx + 3];
+                if(block == 0)
+                    continue;
 
-    setGlobalBlockRelative(x, y + max_height + 2, z, BLOCK_LEAVES);
+                int tx = trunk_x + dx;
+                int ty = static_cast<int>(y) + layer;
+                int tz = trunk_z + dz;
+
+                if(block == BLOCK_WOOD)
+                {
+                    setGlobalBlockRelative(tx, ty, tz, BLOCK_WOOD);
+                }
+                else if(getBLOCK(getGlobalBlockRelative(tx, ty, tz)) == BLOCK_AIR)
+                {
+                    setGlobalBlockRelative(tx, ty, tz, BLOCK_LEAVES);
+                }
+            }
 }
 
 void Chunk::spawnDestructionParticles(const int x, const int y, const int z)

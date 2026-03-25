@@ -1,4 +1,4 @@
-OBJS := font_bmp.h font_dat.h inventory.h inventory2.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h
+OBJS := font_bmp.h font_dat.h inventory.h inventory2.h crafting_table.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h
 
 all: $(OBJS)
 

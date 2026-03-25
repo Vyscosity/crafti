@@ -5,6 +5,7 @@
 #include "blockrenderer.h"
 #include "world.h"
 #include "chunk.h"
+#include "inventorytask.h"
 #include "settingstask.h"
 
 World world;
@@ -158,7 +159,14 @@ bool World::blockAction(const int x, const int y, const int z)
     if(!c)
         return false;
 
-    return global_block_renderer.action(c->getLocalBlock(local_x, local_y, local_z), local_x, local_y, local_z, *c);
+    const BLOCK_WDATA block = c->getLocalBlock(local_x, local_y, local_z);
+    if(getBLOCK(block) == BLOCK_CRAFTING_TABLE)
+    {
+        inventory_task.openCraftingTable();
+        return true;
+    }
+
+    return global_block_renderer.action(block, local_x, local_y, local_z, *c);
 }
 
 bool World::intersect(AABB &other) const
