@@ -24,66 +24,66 @@ struct OreDistribution {
     float air_exposure_discard_chance; // Chance to discard vein if exposed to air (0.0-1.0)
 };
 
-// Minecraft 1.18+ ore distribution parameters
+// Minecraft-inspired ore distribution parameters scaled to this world's Y range (0..39)
 namespace OreDistributions {
-    // Coal: Very common, widespread
+    // Coal: common, biased toward upper layers
     const OreDistribution COAL = {
         BLOCK_COAL_ORE,
-        17,     // vein_size
-        20,     // veins per chunk
-        0,      // y_min (world height relative)
-        192,    // y_max
-        96,     // peak at middle height
+        10,     // vein_size
+        8,      // veins per chunk
+        8,      // y_min
+        39,     // y_max
+        30,     // peak
         OreDistributionType::Triangle,
         0.0f    // Not discarded on air exposure
     };
 
-    // Iron: Common, mid-range
+    // Iron: common, mostly middle/deep
     const OreDistribution IRON = {
         BLOCK_IRON_ORE,
-        9,      // vein_size (larger variant)
-        10,     // veins per chunk
-        -24,    // y_min
-        56,     // y_max
-        32,     // peak in mid-range
+        8,      // vein_size
+        7,      // veins per chunk
+        4,      // y_min
+        32,     // y_max
+        18,     // peak
         OreDistributionType::Triangle,
         0.0f
     };
 
-    // Gold: Rarer, deeper
+    // Gold: rarer, deeper
     const OreDistribution GOLD = {
         BLOCK_GOLD_ORE,
-        9,      // vein_size
-        4,      // veins per chunk (rarer)
-        -64,    // y_min (deep only)
-        32,     // y_max
-        -18,    // peak deep down
-        OreDistributionType::Triangle,
-        0.5f    // 50% chance to discard if exposed to air
-    };
-
-    // Redstone: Deep only
-    const OreDistribution REDSTONE = {
-        BLOCK_REDSTONE_ORE,
-        8,      // vein_size
-        4,      // veins per chunk
-        -64,    // y_min (very deep)
-        15,     // y_max
-        -32,    // peak even deeper
+        7,      // vein_size
+        3,      // veins per chunk
+        0,      // y_min
+        20,     // y_max
+        8,      // peak
         OreDistributionType::Triangle,
         0.0f
     };
 
-    // Diamond: Very rare, deepest
+    // Redstone: deep only
+    const OreDistribution REDSTONE = {
+        BLOCK_REDSTONE_ORE,
+        7,      // vein_size
+        4,      // veins per chunk
+        0,      // y_min
+        16,     // y_max
+        6,      // peak
+        OreDistributionType::Triangle,
+        0.0f
+    };
+
+    // Diamond: rare and deepest
     const OreDistribution DIAMOND = {
         BLOCK_DIAMOND_ORE,
-        4,      // vein_size (small veins)
-        7,      // veins per chunk
-        -64,    // y_min (bedrock level)
-        16,     // y_max
-        -59,    // peak near bottom
+        5,      // vein_size
+        2,      // veins per chunk
+        0,      // y_min
+        12,     // y_max
+        3,      // peak
         OreDistributionType::Triangle,
-        0.5f    // 50% discard on air exposure
+        0.0f
     };
 
     // All ores to generate

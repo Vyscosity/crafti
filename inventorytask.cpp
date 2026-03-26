@@ -117,13 +117,12 @@ enum class RecipeMat : uint8_t {
     Empty,
     Planks,
     WoodLog,
+    Stone,
     Cobble,
-    IronBlock,
-    GoldBlock,
-    DiamondBlock,
     StickItem,
     CoalItem,
     RedstoneDustItem,
+    RedstoneTorchBlock,
     WheatCrop,
 };
 
@@ -169,14 +168,10 @@ bool blockMatchesRecipeMat(BLOCK_WDATA block, unsigned int count, RecipeMat mat)
         return isPlanks(b);
     case RecipeMat::WoodLog:
         return b == BLOCK_WOOD;
+    case RecipeMat::Stone:
+        return b == BLOCK_STONE;
     case RecipeMat::Cobble:
         return b == BLOCK_COBBLESTONE;
-    case RecipeMat::IronBlock:
-        return b == BLOCK_IRON;
-    case RecipeMat::GoldBlock:
-        return b == BLOCK_GOLD;
-    case RecipeMat::DiamondBlock:
-        return b == BLOCK_DIAMOND;
     case RecipeMat::StickItem:
         return b == BLOCK_ITEM && getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::STICK);
     case RecipeMat::CoalItem:
@@ -186,6 +181,8 @@ bool blockMatchesRecipeMat(BLOCK_WDATA block, unsigned int count, RecipeMat mat)
                getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::CHARCOAL);
     case RecipeMat::RedstoneDustItem:
         return b == BLOCK_ITEM && getBLOCKDATA(block) == static_cast<uint8_t>(ItemTexture::REDSTONE_DUST);
+    case RecipeMat::RedstoneTorchBlock:
+        return b == BLOCK_REDSTONE_TORCH;
     case RecipeMat::WheatCrop:
         return b == BLOCK_WHEAT;
     case RecipeMat::Empty:
@@ -259,12 +256,12 @@ static const RecipeDef recipes[] = {
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::BREAD), 1},
 
-    // 2x3 planks -> door
+    // 2x3 planks -> 3 doors
     {2, 3,
      {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
       RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Block, BLOCK_DOOR, 1},
+     RecipeOutputKind::Block, BLOCK_DOOR, 3},
 
     // bowl
     {3, 2,
@@ -347,189 +344,12 @@ static const RecipeDef recipes[] = {
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_SWORD), 1},
 
-    // Iron tools
-    {3, 3,
-     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_PICKAXE), 1},
-    {3, 3,
-     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::Empty,
-      RecipeMat::IronBlock, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_AXE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::IronBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::IronBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_AXE), 1},
-    {3, 3,
-     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_HOE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::IronBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_HOE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_SHOVEL), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_SWORD), 1},
-
-    // Gold tools
-    {3, 3,
-     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_PICKAXE), 1},
-    {3, 3,
-     {RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::Empty,
-      RecipeMat::GoldBlock, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_AXE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::GoldBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::GoldBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_AXE), 1},
-    {3, 3,
-     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_HOE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_HOE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_SHOVEL), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::GoldBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_SWORD), 1},
-
-    // Diamond tools
-    {3, 3,
-     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_PICKAXE), 1},
-    {3, 3,
-     {RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::Empty,
-      RecipeMat::DiamondBlock, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_AXE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::DiamondBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::DiamondBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_AXE), 1},
-    {3, 3,
-     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_HOE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_HOE), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_SHOVEL), 1},
-    {3, 3,
-     {RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::DiamondBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_SWORD), 1},
-
-    // Armor (iron)
+    // Repeater: torch, redstone, torch over three stone
     {3, 2,
-     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
-      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
+     {RecipeMat::RedstoneTorchBlock, RecipeMat::RedstoneDustItem, RecipeMat::RedstoneTorchBlock,
+      RecipeMat::Stone, RecipeMat::Stone, RecipeMat::Stone,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_HELMET), 1},
-    {3, 3,
-     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
-      RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
-      RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_CHESTPLATE), 1},
-    {3, 3,
-     {RecipeMat::IronBlock, RecipeMat::IronBlock, RecipeMat::IronBlock,
-      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
-      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_LEGGINGS), 1},
-    {3, 2,
-     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
-      RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::IRON_BOOTS), 1},
-
-    // Armor (gold)
-    {3, 2,
-     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
-      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_HELMET), 1},
-    {3, 3,
-     {RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
-      RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
-      RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_CHESTPLATE), 1},
-    {3, 3,
-     {RecipeMat::GoldBlock, RecipeMat::GoldBlock, RecipeMat::GoldBlock,
-      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
-      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_LEGGINGS), 1},
-    {3, 2,
-     {RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
-      RecipeMat::GoldBlock, RecipeMat::Empty, RecipeMat::GoldBlock,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::GOLDEN_BOOTS), 1},
-
-    // Armor (diamond)
-    {3, 2,
-     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
-      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_HELMET), 1},
-    {3, 3,
-     {RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
-      RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
-      RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_CHESTPLATE), 1},
-    {3, 3,
-     {RecipeMat::DiamondBlock, RecipeMat::DiamondBlock, RecipeMat::DiamondBlock,
-      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
-      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_LEGGINGS), 1},
-    {3, 2,
-     {RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
-      RecipeMat::DiamondBlock, RecipeMat::Empty, RecipeMat::DiamondBlock,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::DIAMOND_BOOTS), 1},
-
-    // Bucket: iron in a V shape
-    {3, 2,
-     {RecipeMat::IronBlock, RecipeMat::Empty, RecipeMat::IronBlock,
-      RecipeMat::Empty, RecipeMat::IronBlock, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
-     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::BUCKET), 1},
+     RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::REDSTONE_REPEATER), 1},
 };
 
 bool matchRecipeAt(const RecipeDef &recipe,
@@ -551,7 +371,7 @@ bool matchRecipeAt(const RecipeDef &recipe,
             {
                 const int rcol = col - offset_col;
                 const int rrow = row - offset_row;
-                expected = recipe.cells[rrow * recipe.cols + rcol];
+                expected = recipe.cells[rrow * 3 + rcol];
             }
 
             const int slot = row * cols + col;

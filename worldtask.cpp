@@ -16,6 +16,8 @@
 #include "inventory.h"
 #include "inventorytask.h"
 
+#include "textures/items.h"
+
 #include "textures/blockselection.h"
 #include "textures/inventory.h"
 
@@ -25,10 +27,73 @@ constexpr GLFix  WorldTask::player_width,  WorldTask::player_height,  WorldTask:
 
 static BLOCK_WDATA inventoryDropItem(const BLOCK_WDATA block)
 {
+    if(getBLOCK(block) == BLOCK_STONE)
+        return BLOCK_COBBLESTONE;
+
+    if(getBLOCK(block) == BLOCK_GRASS)
+        return BLOCK_DIRT;
+
+    if(getBLOCK(block) == BLOCK_LEAVES)
+        return BLOCK_AIR;
+
     if(global_block_renderer.isOriented(block))
         return getBLOCK(block);
 
     return getBLOCKWDATA(getBLOCK(block), getBLOCKDATA(block));
+}
+
+static int heldPickaxeTier(const BLOCK_WDATA held)
+{
+    if(getBLOCK(held) != BLOCK_ITEM)
+        return 0;
+
+    switch(static_cast<ItemTexture>(getBLOCKDATA(held)))
+    {
+    case ItemTexture::WOODEN_PICKAXE:
+        return 1;
+    case ItemTexture::STONE_PICKAXE:
+        return 2;
+    case ItemTexture::IRON_PICKAXE:
+        return 3;
+    case ItemTexture::DIAMOND_PICKAXE:
+        return 4;
+    case ItemTexture::GOLDEN_PICKAXE:
+        return 5;
+    default:
+        return 0;
+    }
+}
+
+static int requiredPickaxeTierForDrop(const BLOCK block)
+{
+    switch(block)
+    {
+    case BLOCK_STONE:
+    case BLOCK_COBBLESTONE:
+    case BLOCK_COAL_ORE:
+    case BLOCK_FURNACE:
+    case BLOCK_NETHERRACK:
+        return 1; // Wooden+
+
+    case BLOCK_IRON_ORE:
+    case BLOCK_IRON:
+        return 2; // Stone+
+
+    case BLOCK_GOLD_ORE:
+    case BLOCK_GOLD:
+    case BLOCK_DIAMOND_ORE:
+    case BLOCK_DIAMOND:
+    case BLOCK_REDSTONE_ORE:
+        return 3; // Iron+
+
+    default:
+        return 0;
+    }
+}
+
+static bool isPickaxeMinedBlock(const BLOCK block)
+{
+    return requiredPickaxeTierForDrop(block) > 0;
 }
 
 void WorldTask::makeCurrent()
@@ -382,17 +447,38 @@ void WorldTask::logic()
         BLOCK_WDATA b = world.getBlock(selection_pos.x, selection_pos.y, selection_pos.z);
         if(selection_side != AABB::NONE && getBLOCK(b) != BLOCK_BEDROCK && getBLOCK(b) != BLOCK_AIR)
         {
+            const BLOCK b_type = getBLOCK(b);
+            const int pickaxe_tier = heldPickaxeTier(current_inventory.currentSlot());
+
             if (mining_pos.x != selection_pos.x || mining_pos.y != selection_pos.y || mining_pos.z != selection_pos.z) {
                 mining_pos = selection_pos;
                 mining_progress = 0;
-                
-                BLOCK b_type = getBLOCK(b);
+
                 mining_duration = 30; // Default
                 if (b_type == BLOCK_DIRT || b_type == BLOCK_SAND || b_type == BLOCK_LEAVES || b_type == BLOCK_GRASS) mining_duration = 10;
                 else if (b_type == BLOCK_STONE || b_type == BLOCK_COBBLESTONE || b_type == BLOCK_IRON_ORE || b_type == BLOCK_COAL_ORE || b_type == BLOCK_FURNACE) mining_duration = 60;
                 else if (b_type == BLOCK_WOOD || b_type == BLOCK_PLANKS_NORMAL || b_type == BLOCK_CRAFTING_TABLE) mining_duration = 30;
                 else if (b_type == BLOCK_GLASS) mining_duration = 15;
                 else if (b_type == BLOCK_IRON || b_type == BLOCK_GOLD || b_type == BLOCK_DIAMOND) mining_duration = 100;
+
+                if(isPickaxeMinedBlock(b_type))
+                {
+                    if(pickaxe_tier == 0)
+                        mining_duration *= 3;
+                    else if(pickaxe_tier == 1)
+                        mining_duration = mining_duration * 100 / 100;
+                    else if(pickaxe_tier == 2)
+                        mining_duration = mining_duration * 70 / 100;
+                    else if(pickaxe_tier == 3)
+                        mining_duration = mining_duration * 50 / 100;
+                    else if(pickaxe_tier == 4)
+                        mining_duration = mining_duration * 40 / 100;
+                    else
+                        mining_duration = mining_duration * 35 / 100;
+
+                    if(mining_duration < 3)
+                        mining_duration = 3;
+                }
             }
             mining_progress++;
 
@@ -402,7 +488,10 @@ void WorldTask::logic()
 
             if (mining_progress >= mining_duration) {
                 world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
-                current_inventory.addItem(inventoryDropItem(b));
+                const int required_pickaxe_tier = requiredPickaxeTierForDrop(b_type);
+                const bool can_harvest = required_pickaxe_tier == 0 || pickaxe_tier >= required_pickaxe_tier;
+                if(can_harvest)
+                    current_inventory.addItem(inventoryDropItem(b));
                 world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
                 mining_progress = 0;
             }
