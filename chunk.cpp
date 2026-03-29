@@ -525,6 +525,26 @@ void Chunk::generate()
 
     debug("Generating chunk %d:%d:%d...\t", x, y, z);
 
+    if(world.worldType() == World::WorldType::Flat)
+    {
+        if(this->y == 0)
+        {
+            for(int x = 0; x < SIZE; ++x)
+                for(int z = 0; z < SIZE; ++z)
+                {
+                    blocks[x][0][z] = BLOCK_BEDROCK;
+                    if(SIZE > 1)
+                        blocks[x][1][z] = BLOCK_DIRT;
+                    if(SIZE > 2)
+                        blocks[x][2][z] = BLOCK_GRASS;
+                }
+        }
+
+        // Leave everything else as air and skip terrain generation.
+        debug("Done!\n");
+        return;
+    }
+
     const PerlinNoise &noise = world.noiseGenerator();
 
     constexpr int max_trees = (Chunk::SIZE * Chunk::SIZE) / 45;

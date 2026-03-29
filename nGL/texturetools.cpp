@@ -332,9 +332,21 @@ void drawTexture(const TEXTURE &src, TEXTURE &dest,
 				 uint16_t src_x, uint16_t src_y, uint16_t src_w, uint16_t src_h,
 				 uint16_t dest_x, uint16_t dest_y, uint16_t dest_w, uint16_t dest_h)
 {
-	if(src_x + src_w > src.width || src_y + src_h > src.height || dest_x + dest_w > dest.width || dest_y + dest_h > dest.height)
+	if(src_x >= src.width || src_y >= src.height || dest_x >= dest.width || dest_y >= dest.height)
 		return;
-	
+
+	if(src_x + src_w > src.width)
+		src_w = src.width - src_x;
+	if(src_y + src_h > src.height)
+		src_h = src.height - src_y;
+	if(dest_x + dest_w > dest.width)
+		dest_w = dest.width - dest_x;
+	if(dest_y + dest_h > dest.height)
+		dest_h = dest.height - dest_y;
+
+	if(src_w == 0 || src_h == 0 || dest_w == 0 || dest_h == 0)
+		return;
+
 	uint16_t *dest_ptr = dest.bitmap + dest_x + dest_y * dest.width;
 	const unsigned int dest_nextline = dest.width - dest_w;
 	

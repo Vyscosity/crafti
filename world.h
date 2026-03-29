@@ -50,6 +50,15 @@ public:
     void render();
     int fieldOfView() const { return field_of_view; }
     void setFieldOfView(int fov);
+
+    enum class WorldType {
+        Terrain,
+        Flat
+    };
+
+    void setWorldType(WorldType type) { world_type = type; }
+    WorldType worldType() const { return world_type; }
+
     Chunk *findChunk(int x, int y, int z) const;
     void spawnDestructionParticles(int x, int y, int z);
 
@@ -77,6 +86,8 @@ private:
 
     //If a block in a not yet loaded Chunk has been set, it's stored here until the Chunk has been loaded
     std::vector<BLOCK_CHANGE> pending_block_changes;
+
+    WorldType world_type = WorldType::Terrain;
 };
 
 extern World world;

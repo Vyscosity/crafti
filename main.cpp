@@ -11,6 +11,7 @@
 #include "gl.h"
 #include "terrain.h"
 #include "worldtask.h"
+#include "starttask.h"
 
 #include "textures/loading.h"
 
@@ -73,12 +74,18 @@ int main(int argc, char *argv[])
     Task::initializeGlobals(argc > 1 ? argv[1] : "/documents/ndless/crafti.map.tns");
 
     if(Task::load())
+    {
         world_task.setMessage("World loaded.");
+        start_task.setHasSavedWorld(true);
+    }
     else
+    {
         world_task.setMessage("World failed to load.");
+        start_task.setHasSavedWorld(false);
+    }
 
-    //Start with WorldTask as current task
-    world_task.makeCurrent();
+    //Start with StartTask as current task so we can choose flat/terrain.
+    start_task.makeCurrent();
 
     #ifdef _TINSPIRE
     constexpr uint32_t tick_ms = 300; // Calculator fixed simulation tick
