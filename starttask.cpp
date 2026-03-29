@@ -8,6 +8,8 @@
 #include "texturetools.h"
 #include "textures/selection.h"
 
+extern unsigned char font_dat[];
+
 StartTask start_task;
 
 StartTask::StartTask()
@@ -22,6 +24,42 @@ void StartTask::makeCurrent()
 {
     selected_item = NEW_TERRAIN;
     Task::makeCurrent();
+}
+
+static unsigned int measureTextWidth(const char *str)
+{
+    unsigned int w = 0;
+    while(*str)
+        w += font_dat[17 + static_cast<unsigned char>(*str++)];
+    return w;
+}
+
+static void drawStringBigCenter(const char *str, COLOR color, TEXTURE &dest, int center_x, int center_y, int scale)
+{
+    if(scale <= 1)
+    {
+        drawStringCenter(str, color, dest, center_x, center_y);
+        return;
+    }
+
+    unsigned int w = measureTextWidth(str);
+    unsigned int h = fontHeight();
+    if(w == 0 || h == 0)
+    {
+        drawStringCenter(str, color, dest, center_x, center_y);
+        return;
+    }
+
+    TEXTURE *tmp = newTexture(w, h, 0, true, 0);
+    drawString(str, color, *tmp, 0, 0);
+
+    int big_w = w * scale;
+    int big_h = h * scale;
+    int dest_x = center_x - big_w / 2;
+    int dest_y = center_y - big_h / 2;
+
+    drawTexture(*tmp, dest, 0, 0, w, h, dest_x, dest_y, big_w, big_h);
+    deleteTexture(tmp);
 }
 
 static void fillRect(TEXTURE &tex, int x, int y, int w, int h, COLOR c)
