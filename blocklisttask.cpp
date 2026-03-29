@@ -318,7 +318,7 @@ void BlockListTask::logic()
     {
         const SelectablePage &page = selectable_pages[current_page];
         if(page.count > 0)
-            current_inventory.setCurrentSlot(page.entries[current_selection], 1);
+            current_inventory.setCurrentSlot(page.entries[current_selection], 64);
 
         key_held_down = true;
     }
