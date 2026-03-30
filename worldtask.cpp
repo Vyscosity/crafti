@@ -36,6 +36,10 @@ static BLOCK_WDATA inventoryDropItem(const BLOCK_WDATA block)
     if(getBLOCK(block) == BLOCK_LEAVES)
         return BLOCK_AIR;
 
+    // Fast water dropping regular water
+    if(getBLOCK(block) == BLOCK_WATER_FAST)
+        return getBLOCKWDATA(BLOCK_WATER, RANGE_WATER);
+
     if(global_block_renderer.isOriented(block))
         return getBLOCK(block);
 
@@ -216,7 +220,8 @@ void WorldTask::logic()
 
         vy -= 5;
 
-        in_water = getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER;
+        in_water = getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER
+                || getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER_FAST;
 
         if(in_water)
             can_jump = true;

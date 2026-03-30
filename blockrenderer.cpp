@@ -398,6 +398,7 @@ UniversalBlockRenderer::UniversalBlockRenderer()
     map[BLOCK_TORCH] = std::make_shared<TorchRenderer>();
     map[BLOCK_WATER] = std::make_shared<FluidRenderer>(13, 12, "Water");
     map[BLOCK_LAVA] = std::make_shared<FluidRenderer>(13, 14, "Lava");
+    map[BLOCK_WATER_FAST] = std::make_shared<FastWaterRenderer>();
     map[BLOCK_WHEAT] = std::make_shared<WheatRenderer>();
     map[BLOCK_WOOD] = color_renderer;
 

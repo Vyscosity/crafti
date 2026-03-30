@@ -264,3 +264,48 @@ const char *FluidRenderer::getName(const BLOCK_WDATA /*block*/)
 {
     return name;
 }
+
+// ---- FastWaterRenderer ----
+
+FastWaterRenderer::FastWaterRenderer()
+    : tex_x(13), tex_y(12)  // Same tile as regular water
+{}
+
+void FastWaterRenderer::geometryNormalBlock(const BLOCK_WDATA block, const int local_x, const int local_y, const int local_z, const BLOCK_SIDE side, Chunk &c)
+{
+    // Skip faces that are shared with another BLOCK_WATER_FAST block (no inner walls)
+    switch(side)
+    {
+    case BLOCK_TOP:
+        if(getBLOCK(c.getGlobalBlockRelative(local_x, local_y + 1, local_z)) == getBLOCK(block))
+            return;
+        break;
+    case BLOCK_BOTTOM:
+        if(getBLOCK(c.getGlobalBlockRelative(local_x, local_y - 1, local_z)) == getBLOCK(block))
+            return;
+        break;
+    case BLOCK_LEFT:
+        if(getBLOCK(c.getGlobalBlockRelative(local_x - 1, local_y, local_z)) == getBLOCK(block))
+            return;
+        break;
+    case BLOCK_RIGHT:
+        if(getBLOCK(c.getGlobalBlockRelative(local_x + 1, local_y, local_z)) == getBLOCK(block))
+            return;
+        break;
+    case BLOCK_BACK:
+        if(getBLOCK(c.getGlobalBlockRelative(local_x, local_y, local_z + 1)) == getBLOCK(block))
+            return;
+        break;
+    case BLOCK_FRONT:
+        if(getBLOCK(c.getGlobalBlockRelative(local_x, local_y, local_z - 1)) == getBLOCK(block))
+            return;
+        break;
+    }
+
+    BlockRenderer::renderNormalBlockSide(local_x, local_y, local_z, side, terrain_atlas[tex_x][tex_y].current, c, (COLOR)0x0080);
+}
+
+void FastWaterRenderer::drawPreview(const BLOCK_WDATA /*block*/, TEXTURE &dest, const int x, const int y)
+{
+    BlockRenderer::drawTextureAtlasEntry(*terrain_resized, terrain_atlas[tex_x][tex_y].resized, dest, x, y);
+}

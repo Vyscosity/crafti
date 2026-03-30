@@ -61,7 +61,8 @@ constexpr BLOCK BLOCK_REDSTONE_SWITCH = 147; //Data: BLOCK_SIDE
 constexpr BLOCK BLOCK_REDSTONE_WIRE = 148; //Data: (active: 1<<6, visited: 1<<5)
 constexpr BLOCK BLOCK_REDSTONE_TORCH = 149; //Data: See BLOCK_TORCH
 constexpr BLOCK BLOCK_PRESSURE_PLATE = 150; //Data: How many ticks kept active
-constexpr BLOCK BLOCK_SPECIAL_LAST = BLOCK_PRESSURE_PLATE;
+constexpr BLOCK BLOCK_WATER_FAST = 151;      //Non-propagating water for terrain gen
+constexpr BLOCK BLOCK_SPECIAL_LAST = BLOCK_WATER_FAST;
 
 constexpr uint8_t RANGE_WATER = 7;
 constexpr uint8_t RANGE_LAVA = 3;

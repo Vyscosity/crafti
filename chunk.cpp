@@ -487,7 +487,7 @@ bool Chunk::intersectsRay(GLFix rx, GLFix ry, GLFix rz, GLFix dx, GLFix dy, GLFi
 
                 BLOCK_WDATA block = blocks[x][y][z];
 
-                if(block == BLOCK_AIR || (getBLOCK(block) == BLOCK_WATER && ignore_water))
+                if(block == BLOCK_AIR || ((getBLOCK(block) == BLOCK_WATER || getBLOCK(block) == BLOCK_WATER_FAST) && ignore_water))
                     continue;
 
                 AABB test = aabb;
@@ -608,7 +608,7 @@ void Chunk::generate()
             for(int y = water_start; y < water_end; ++y)
             {
                 if(blocks[x][y][z] == BLOCK_AIR)
-                    blocks[x][y][z] = getBLOCKWDATA(BLOCK_WATER, RANGE_WATER);
+                    blocks[x][y][z] = getBLOCKWDATA(BLOCK_WATER_FAST, 0);
             }
 
             if(trees < max_trees
