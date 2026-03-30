@@ -134,16 +134,19 @@ int main(int argc, char *argv[])
 #endif
     }
 
-    Task::deinitializeGlobals();
-
-    // Must clear the world before shutting down graphics, otherwise
-    // the global world object's destructor will try to delete chunks
-    // after graphics resources have been freed
+#ifndef _TINSPIRE
+    // 1. Clear world first (may use textures/graphics for loading text)
     world.clear();
 
+    // 2. Clear terrain resources
+    terrainUninit();
+
+    // 3. Uninit graphics engine
     nglUninit();
 
-    terrainUninit();
+    // 4. Deinitialize UI globals at the very end
+    Task::deinitializeGlobals();
+#endif
 
     return 0;
 }

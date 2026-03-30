@@ -126,8 +126,16 @@ void Task::initializeGlobals(const char *savefile)
 
 void Task::deinitializeGlobals()
 {
-    deleteTexture(screen);
-    deleteTexture(background);
+    if(screen)
+    {
+        deleteTexture(screen);
+        screen = nullptr;
+    }
+    if(background)
+    {
+        deleteTexture(background);
+        background = nullptr;
+    }
 }
 
 void Task::saveBackground()
