@@ -231,3 +231,13 @@ void Inventory::nextSlot()
     if(current_slot >= hotbar_slot_count)
         current_slot = 0;
 }
+
+void Inventory::reset()
+{
+    for(int i = 0; i < slot_count; ++i)
+    {
+        entries[i] = BLOCK_AIR;
+        counts[i] = 0;
+    }
+    current_slot = 0;
+}

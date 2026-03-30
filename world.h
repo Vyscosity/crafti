@@ -78,7 +78,7 @@ private:
     int field_of_view = 15;
 #endif
     PerlinNoise perlin_noise;
-    unsigned int *seed;
+    unsigned int seed;
 
     std::unordered_map<std::tuple<int,int,int>,Chunk*> all_chunks;
     std::vector<Chunk*> visible_chunks;

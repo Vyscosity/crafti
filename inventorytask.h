@@ -12,6 +12,7 @@ public:
     virtual void makeCurrent() override;
     virtual void render() override;
     virtual void logic() override;
+    void reset();
 
 private:
     // Inventory slot constants

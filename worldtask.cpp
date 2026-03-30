@@ -799,6 +799,17 @@ void WorldTask::resetWorld()
     xr = yr = 0;
     world.generateSeed();
     world.clear();
+    current_inventory.reset();
+    inventory_task.reset();
+    block_list_task.current_selection = 1;
+
+    vy = 0;
+    can_jump = false;
+    tp_had_contact = false;
+    in_water = false;
+    mining_pos = {-1, -1, -1};
+    mining_progress = 0;
+    message_timeout = 0;
 }
 
 void WorldTask::setMessage(const char *message)

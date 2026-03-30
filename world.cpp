@@ -18,19 +18,15 @@ World::World() : perlin_noise(0)
 
 World::~World()
 {
-    free(seed);
     for(auto&& c : all_chunks)
         delete c.second;
 }
 
 void World::generateSeed()
 {
-    //First malloc and then free, as we may get the same again otherwise
-    unsigned int *old_seed = seed;
-    seed = static_cast<unsigned int*>(malloc(sizeof(*seed)));
-    free(old_seed);
-    printf("Seed: %d\n", *seed);
-    perlin_noise.setSeed(*seed);
+    seed = static_cast<unsigned int>(rand());
+    printf("Seed: %u\n", seed);
+    perlin_noise.setSeed(seed);
 }
 
 constexpr int getLocal(const int global)
@@ -215,6 +211,8 @@ void World::clear()
 
     all_chunks.clear();
     visible_chunks.clear();
+    build_queue.clear();
+    pending_block_changes.clear();
 
     loaded = false;
 }
@@ -234,8 +232,8 @@ bool World::loadFromFile(gzFile file)
 
     clear();
 
-    LOAD_FROM_FILE(*seed)
-    perlin_noise.setSeed(*seed);
+    LOAD_FROM_FILE(seed)
+    perlin_noise.setSeed(seed);
 
     unsigned int block_changes;
     LOAD_FROM_FILE(block_changes)
@@ -269,7 +267,7 @@ bool World::saveToFile(gzFile file) const
 {
     drawLoadingtext(1);
 
-    SAVE_TO_FILE(*seed)
+    SAVE_TO_FILE(seed)
 
     unsigned int block_changes = pending_block_changes.size();
     SAVE_TO_FILE(block_changes)

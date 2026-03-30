@@ -28,6 +28,7 @@ public:
 
     void previousSlot();
     void nextSlot();
+    void reset();
 
     static constexpr int hotbar_slot_count = 9;
     static constexpr int storage_slot_count = 27;

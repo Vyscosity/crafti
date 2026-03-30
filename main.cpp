@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
     #endif
 
     nglInit();
+    srand(static_cast<unsigned int>(time(nullptr)));
     if(lcd_type() == SCR_320x240_4)
         greyscaleTexture(loading);
     // The loading bitmap is 320x240, but the desktop renderer uses 640x480

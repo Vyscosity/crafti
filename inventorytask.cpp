@@ -425,6 +425,20 @@ void InventoryTask::makeCurrent()
     openPlayerInventory();
 }
 
+void InventoryTask::reset()
+{
+    held_block = BLOCK_AIR;
+    held_count = 0;
+    crafting_output = BLOCK_AIR;
+    crafting_output_count = 0;
+    for(int i = 0; i < CRAFTING_INPUT_COUNT; ++i)
+    {
+        crafting_input[i] = BLOCK_AIR;
+        crafting_counts[i] = 0;
+    }
+    matched_recipe_slot_count = 0;
+}
+
 void InventoryTask::activate()
 {
     if(!background_saved)
