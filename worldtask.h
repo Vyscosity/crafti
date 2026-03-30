@@ -15,6 +15,7 @@ public:
     virtual void render() override;
 
     void resetWorld();
+    void respawnPlayer();
 
     GLFix x, y = World::HEIGHT * Chunk::SIZE * BLOCK_SIZE, z, xr, yr;
 

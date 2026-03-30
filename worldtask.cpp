@@ -21,6 +21,8 @@
 #include "textures/blockselection.h"
 #include "textures/inventory.h"
 
+#include "deathtask.h"
+
 WorldTask world_task;
 
 constexpr GLFix  WorldTask::player_width,  WorldTask::player_height,  WorldTask::eye_pos;
@@ -246,8 +248,8 @@ void WorldTask::logic()
 
                     if(hearts == 0)
                     {
-                        resetWorld();
-                        setMessage("You died!");
+                        // Switch to death screen; the player can respawn from there.
+                        death_task.makeCurrent();
                         return;
                     }
                     else
@@ -888,6 +890,21 @@ void WorldTask::resetWorld()
     in_water = false;
     mining_pos = {-1, -1, -1};
     mining_progress = 0;
+    message_timeout = 0;
+}
+
+void WorldTask::respawnPlayer()
+{
+    // Respawn without wiping the world.
+    hearts = max_hearts;
+    vy = 0;
+    fall_distance = 0;
+    safe_spawn_pending = true;
+
+    // Place above the world so the down-ray has something to hit.
+    y = World::HEIGHT * Chunk::SIZE * BLOCK_SIZE;
+    in_water = false;
+    can_jump = false;
     message_timeout = 0;
 }
 
