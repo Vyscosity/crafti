@@ -199,16 +199,23 @@ void WorldTask::logic()
             aabb = aabb_moved;
         }
 
+        const GLFix vy_before = vy;
         aabb_moved = aabb;
         aabb_moved.low_y += vy;
         aabb_moved.high_y += vy;
 
         can_jump = world.intersect(aabb_moved);
 
+        const bool landed_from_fall = (vy_before < GLFix(0)) && can_jump && fall_distance > GLFix(0);
+
         if(!can_jump)
         {
             y += vy;
             aabb = aabb_moved;
+
+            // While falling (downward velocity) and we actually move, accumulate fall distance.
+            if(vy_before < GLFix(0))
+                fall_distance += -vy_before;
         }
         else if(vy > GLFix(0))
         {
@@ -222,6 +229,37 @@ void WorldTask::logic()
 
         in_water = getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER
                 || getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER_FAST;
+
+        if(landed_from_fall)
+        {
+            // Apply fall damage only when not in water, and never during the initial safe spawn.
+            if(!safe_spawn_pending && !in_water)
+            {
+                const int fall_blocks = fall_distance.toInteger<int>() / BLOCK_SIZE;
+                const int dmg = fall_blocks > 3 ? (fall_blocks - 3) : 0;
+                if(dmg > 0)
+                {
+                    if(static_cast<unsigned int>(dmg) >= hearts)
+                        hearts = 0;
+                    else
+                        hearts -= static_cast<unsigned int>(dmg);
+
+                    if(hearts == 0)
+                    {
+                        resetWorld();
+                        setMessage("You died!");
+                        return;
+                    }
+                    else
+                    {
+                        setMessage("Ouch!");
+                    }
+                }
+            }
+
+            // Whether we took damage or not, we've impacted.
+            fall_distance = 0;
+        }
 
         if(in_water)
             can_jump = true;
@@ -330,6 +368,29 @@ void WorldTask::logic()
     }
 
     world.setPosition(x, y, z);
+
+    if(safe_spawn_pending)
+    {
+        VECTOR3 hit_pos = {-1, -1, -1};
+        AABB::SIDE hit_side = AABB::NONE;
+        GLFix dist;
+        constexpr GLFix dx = GLFix(0);
+        constexpr GLFix dz = GLFix(0);
+        constexpr GLFix dy = GLFix(-1);
+
+        // Raycast straight down from the player's eye.
+        if(world.intersectsRay(x, y + eye_pos, z, dx, dy, dz, hit_pos, hit_side, dist, false))
+        {
+            const int hit_block_y = hit_pos.y.toInteger<int>();
+            // Place player 1 block above the first solid block hit.
+            y = GLFix(hit_block_y + 1) * BLOCK_SIZE + GLFix::minStep();
+        }
+
+        // Reset velocities and fall tracking after teleporting.
+        vy = 0;
+        fall_distance = 0;
+        safe_spawn_pending = false;
+    }
 
     do_test = !do_test;
 
@@ -741,6 +802,15 @@ void WorldTask::render()
     crosshairPixel(0, 1);
     crosshairPixel(0, 2);
 
+    // Hearts HUD (placeholder: just show numeric health in the top-right).
+    // Eventually this will become the full Minecraft heart icons.
+    {
+        char hearts_text[8];
+        snprintf(hearts_text, sizeof(hearts_text), "%u", hearts);
+        const unsigned int hearts_x = (SCREEN_WIDTH > 20 ? static_cast<unsigned int>(SCREEN_WIDTH - 20) : 0);
+        drawString(hearts_text, 0xFFFF, *screen, hearts_x, 5);
+    }
+
     //Don't draw the inventory when drawing the background for BlockListTask
     if(draw_inventory)
     {
@@ -807,6 +877,10 @@ void WorldTask::resetWorld()
     current_inventory.reset();
     inventory_task.reset();
     block_list_task.current_selection = 1;
+
+    hearts = max_hearts;
+    fall_distance = 0;
+    safe_spawn_pending = true;
 
     vy = 0;
     can_jump = false;

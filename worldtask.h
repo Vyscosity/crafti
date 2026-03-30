@@ -39,6 +39,17 @@ private:
     GLFix vy = 0; //Y-Velocity for gravity and jumps
     bool in_water = false;
 
+    // --- Survival / combat (Minecraft-ish) ---
+    static constexpr unsigned int max_hearts = 10;
+    unsigned int hearts = max_hearts;
+
+    // Accumulated downward travel since last time we touched ground.
+    GLFix fall_distance = 0;
+
+    // After reset we want to place the player on solid ground (1 block above it)
+    // so the first fall doesn't instantly kill the player once fall damage is enabled.
+    bool safe_spawn_pending = true;
+
     VECTOR3 mining_pos = {-1, -1, -1};
     int mining_progress = 0;
     int mining_duration = 0;
