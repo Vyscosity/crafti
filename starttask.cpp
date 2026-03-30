@@ -160,7 +160,7 @@ void StartTask::render()
 void StartTask::logic()
 {
     if(key_held_down)
-        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_UP) || keyPressed(KEY_NSPIRE_DOWN) || keyPressed(KEY_NSPIRE_2) || keyPressed(KEY_NSPIRE_8);
+        key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_UP) || keyPressed(KEY_NSPIRE_DOWN) || keyPressed(KEY_NSPIRE_2) || keyPressed(KEY_NSPIRE_8) || keyPressed(KEY_NSPIRE_5) || keyPressed(KEY_NSPIRE_ENTER);
     else if(keyPressed(KEY_NSPIRE_UP) || keyPressed(KEY_NSPIRE_8))
     {
         --selected_item;
