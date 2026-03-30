@@ -209,15 +209,15 @@ static const RecipeDef recipes[] = {
 
     // 2 planks vertical -> 4 sticks
     {1, 2,
-     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+     {RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STICK), 4},
 
     // 2x2 planks -> crafting table
     {2, 2,
-     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
-      RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Empty,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
      RecipeOutputKind::Block, BLOCK_CRAFTING_TABLE, 1},
 
@@ -230,26 +230,26 @@ static const RecipeDef recipes[] = {
 
     // coal over stick -> 4 torches
     {1, 2,
-     {RecipeMat::CoalItem, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+     {RecipeMat::CoalItem, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::StickItem, RecipeMat::Empty, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
      RecipeOutputKind::Block, BLOCK_TORCH, 4},
 
     // redstone dust over stick -> redstone torch
     {1, 2,
-     {RecipeMat::RedstoneDustItem, RecipeMat::StickItem, RecipeMat::Empty,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
+     {RecipeMat::RedstoneDustItem, RecipeMat::Empty, RecipeMat::Empty,
+      RecipeMat::StickItem, RecipeMat::Empty, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
      RecipeOutputKind::Block, BLOCK_REDSTONE_TORCH, 1},
 
-    // 2 planks -> pressure plate
+    // 2 planks horizontal -> pressure plate
     {2, 1,
      {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
      RecipeOutputKind::Block, BLOCK_PRESSURE_PLATE, 1},
 
-    // 3 wheat -> bread
+    // 3 wheat horizontal -> bread
     {3, 1,
      {RecipeMat::WheatCrop, RecipeMat::WheatCrop, RecipeMat::WheatCrop,
       RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty,
@@ -258,9 +258,9 @@ static const RecipeDef recipes[] = {
 
     // 2x3 planks -> 3 doors
     {2, 3,
-     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
-      RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Planks,
-      RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Empty},
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
+      RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty},
      RecipeOutputKind::Block, BLOCK_DOOR, 3},
 
     // bowl
@@ -277,12 +277,12 @@ static const RecipeDef recipes[] = {
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_PICKAXE), 1},
     {3, 3,
-     {RecipeMat::Planks, RecipeMat::Empty, RecipeMat::Empty,
+     {RecipeMat::Planks, RecipeMat::Planks, RecipeMat::Empty,
       RecipeMat::Planks, RecipeMat::StickItem, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_AXE), 1},
     {3, 3,
-     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Planks,
+     {RecipeMat::Empty, RecipeMat::Planks, RecipeMat::Planks,
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Planks,
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::WOODEN_AXE), 1},
@@ -314,12 +314,12 @@ static const RecipeDef recipes[] = {
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_PICKAXE), 1},
     {3, 3,
-     {RecipeMat::Cobble, RecipeMat::Empty, RecipeMat::Empty,
+     {RecipeMat::Cobble, RecipeMat::Cobble, RecipeMat::Empty,
       RecipeMat::Cobble, RecipeMat::StickItem, RecipeMat::Empty,
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_AXE), 1},
     {3, 3,
-     {RecipeMat::Empty, RecipeMat::Empty, RecipeMat::Cobble,
+     {RecipeMat::Empty, RecipeMat::Cobble, RecipeMat::Cobble,
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Cobble,
       RecipeMat::Empty, RecipeMat::StickItem, RecipeMat::Empty},
      RecipeOutputKind::Item, static_cast<uint16_t>(ItemTexture::STONE_AXE), 1},
