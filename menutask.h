@@ -9,12 +9,11 @@ class MenuTask : public Task
 {
 public:
     enum MENUITEM {
-        NEW_WORLD = 0,
-        LOAD_WORLD,
-        SAVE_WORLD,
+        RESUME = 0,
         SETTINGS,
-        EXIT,
         HELP,
+        SAVE_WORLD,
+        QUIT_TO_TITLE,
         MENU_ITEM_MAX
     };
 
@@ -27,9 +26,7 @@ public:
     virtual void logic() override;
 
 private:
-    int menu_selected_item = 0, menu_width_visible = 0;
-    bool menu_open = true;
-    TEXTURE *menu_with_selection;
+    int menu_selected_item = 0;
 };
 
 extern MenuTask menu_task;
