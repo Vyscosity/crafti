@@ -37,7 +37,7 @@ public:
 
     virtual void renderSpecialBlock(const BLOCK_WDATA /*block*/, GLFix /*x*/, GLFix /*y*/, GLFix /*z*/, Chunk & /*c*/) override {}
     virtual void geometryNormalBlock(const BLOCK_WDATA block, const int local_x, const int local_y, const int local_z, const BLOCK_SIDE side, Chunk &c) override;
-    virtual bool isOpaque(const BLOCK_WDATA /*block*/) override { return false; }
+    virtual bool isOpaque(const BLOCK_WDATA /*block*/) override { return true; } // Cull neighbors like solid blocks
     virtual bool isObstacle(const BLOCK_WDATA /*block*/) override { return false; }
     virtual bool isOriented(const BLOCK_WDATA /*block*/) override { return false; }
     virtual bool isFullyOriented(const BLOCK_WDATA /*block*/) override { return false; }
