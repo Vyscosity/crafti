@@ -90,8 +90,6 @@ bool Chunk::isLocalBlockSideRendered(const int x, const int y, const int z, cons
 
 void Chunk::buildGeometry()
 {
-    drawLoadingtext(8);
-
     std::fill(pos_indices[0][0] + 0, pos_indices[SIZE][SIZE] + SIZE + 1, -1);
 
     build_positions.clear();

@@ -358,8 +358,6 @@ void World::spawnDestructionParticles(int x, int y, int z)
 
 Chunk* World::generateChunk(int x, int y, int z)
 {
-    drawLoadingtext(2);
-
     if(Chunk *c = findChunk(x - 1, y, z))
         c->setDirty();
     if(Chunk *c = findChunk(x + 1, y, z))

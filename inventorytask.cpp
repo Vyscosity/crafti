@@ -48,7 +48,11 @@ constexpr int table_output_x0 = 238;
 constexpr int table_output_y0 = 60;
 constexpr int table_output_x1 = 288;
 constexpr int table_output_y1 = 110;
+#ifdef _TINSPIRE
+constexpr int table_panel_offset_y = 6;
+#else
 constexpr int table_panel_offset_y = 26; // Previously 6; moved down by 20px.
+#endif
 
 // Crafting area coordinates in inventory2.png
 constexpr int crafting_src_x = 87;
@@ -100,12 +104,25 @@ void craftingTablePanelRect(const TEXTURE &table_tex, int &panel_x, int &panel_y
     const int max_w = std::max(1, SCREEN_WIDTH - 8);
     const int inventory_w = static_cast<int>(inventory2.width) * inv_draw_scale;
     const int preferred_w = std::min(max_w, inventory_w);
+    const int tw = static_cast<int>(table_tex.width);
+    const int th = static_cast<int>(table_tex.height);
 
-    panel_w = std::min(static_cast<int>(table_tex.width), preferred_w);
+    panel_w = std::min(tw, preferred_w);
     if(panel_w < 1)
         panel_w = 1;
 
-    panel_h = (panel_w * static_cast<int>(table_tex.height)) / static_cast<int>(table_tex.width);
+    panel_h = (panel_w * th) / tw;
+#ifdef _TINSPIRE
+    // 320x240: uncapped panel is ~126px tall and crowds the inventory below.
+    constexpr int nspire_table_max_h = 74;
+    if(panel_h > nspire_table_max_h)
+    {
+        panel_h = nspire_table_max_h;
+        panel_w = (panel_h * tw) / th;
+        if(panel_w < 1)
+            panel_w = 1;
+    }
+#endif
     if(panel_h < 1)
         panel_h = 1;
 
