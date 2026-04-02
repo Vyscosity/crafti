@@ -17,6 +17,11 @@ struct ChickenEntity
     GLFix walk_timer;
     GLFix swing_intensity;
 
+    int health;
+    int hurt_time;
+    int hurt_resistant;
+    int death_time;
+
     unsigned ticks_alive;
     int dir_timer;
     bool on_ground;
@@ -30,6 +35,9 @@ struct ChickenEntity
     ChickenEntity(GLFix x, GLFix y, GLFix z);
 
     void update();
+    void applyMeleeDamage(int amount, GLFix attacker_yaw);
+    bool isAliveMob() const { return health > 0; }
+
     void render() const;
 };
 

@@ -83,6 +83,7 @@ ChickenEntity::ChickenEntity()
     : x(0), y(GLFix(World::HEIGHT * Chunk::SIZE) * BLOCK_SIZE), z(0),
       vx(0), vy(0), vz(0),
       yaw(0), walk_timer(0), swing_intensity(0),
+      health(4), hurt_time(0), hurt_resistant(0), death_time(0),
       ticks_alive(0), dir_timer(50), on_ground(false)
 {
     aabb = { x - WIDTH / 2, y, z - WIDTH / 2, x + WIDTH / 2, y + HEIGHT, z + WIDTH / 2 };
@@ -92,6 +93,7 @@ ChickenEntity::ChickenEntity(GLFix px, GLFix py, GLFix pz)
     : x(px), y(py), z(pz),
       vx(0), vy(0), vz(0),
       yaw(GLFix(rand() % 360)), walk_timer(0), swing_intensity(0),
+      health(4), hurt_time(0), hurt_resistant(0), death_time(0),
       ticks_alive(0), dir_timer(rand() % 60), on_ground(false)
 {
     aabb = { x - WIDTH / 2, y, z - WIDTH / 2, x + WIDTH / 2, y + HEIGHT, z + WIDTH / 2 };
@@ -99,7 +101,20 @@ ChickenEntity::ChickenEntity(GLFix px, GLFix py, GLFix pz)
 
 void ChickenEntity::update()
 {
-    if(--dir_timer <= 0)
+    if(hurt_time > 0)
+        --hurt_time;
+    if(hurt_resistant > 0)
+        --hurt_resistant;
+
+    const bool dead = health <= 0;
+    if(dead)
+    {
+        if(death_time <= 20)
+            ++death_time;
+        vx *= GLFix(0.92f);
+        vz *= GLFix(0.92f);
+    }
+    else if(--dir_timer <= 0)
     {
         int r = rand() % 8;
         const GLFix speed(2);
@@ -169,7 +184,7 @@ void ChickenEntity::update()
         }
         vy -= GLFix(5);
 
-        if(on_ground && (vx != GLFix(0) || vz != GLFix(0)) && (rand() % 100 == 0))
+        if(!dead && on_ground && (vx != GLFix(0) || vz != GLFix(0)) && (rand() % 100 == 0))
         {
             vy = GLFix(40);
             on_ground = false;
@@ -177,6 +192,12 @@ void ChickenEntity::update()
     }
 
     aabb = { x - WIDTH / 2, y, z - WIDTH / 2, x + WIDTH / 2, y + HEIGHT, z + WIDTH / 2 };
+
+    if(dead)
+    {
+        swing_intensity *= GLFix(0.85f);
+        return;
+    }
 
     GLFix dx = x - old_x;
     GLFix dz = z - old_z;
@@ -196,6 +217,15 @@ void ChickenEntity::update()
 
 void ChickenEntity::render() const
 {
+    if(health <= 0 && death_time > 20)
+        return;
+
+    if(hurt_time > 0)
+    {
+        GLFix t = GLFix(hurt_time) / GLFix(10);
+        nglSetTextureModulate(GLFix(1), GLFix(1) - t * GLFix(0.52f), GLFix(1) - t * GLFix(0.48f));
+    }
+
     const GLFix S = GLFix(BLOCK_SIZE) / GLFix(16);
     GLFix t = walk_timer;
     t.normaliseAngle();
@@ -212,6 +242,17 @@ void ChickenEntity::render() const
     glPushMatrix();
     glTranslatef(x, y, z);
     nglRotateY(render_yaw);
+
+    if(health <= 0 && death_time > 0)
+    {
+        float df = float(death_time - 1) / 20.0f * 1.6f;
+        if(df < 0.f)
+            df = 0.f;
+        float f = std::sqrt(df);
+        if(f > 1.f)
+            f = 1.f;
+        nglRotateZ(GLFix(f * 90.0f));
+    }
 
     auto pivotY = [&](GLFix mc_py) -> GLFix {
         return (GLFix(24) - mc_py) * S;
@@ -275,6 +316,38 @@ void ChickenEntity::render() const
     glPopMatrix();
 
     glPopMatrix();
+
+    nglResetTextureModulate();
+}
+
+void ChickenEntity::applyMeleeDamage(int amount, GLFix attacker_yaw)
+{
+    if(health <= 0 || hurt_resistant > 0)
+        return;
+
+    health -= amount;
+    hurt_time = 10;
+    hurt_resistant = 10;
+
+    GLFix ay = attacker_yaw;
+    ay.normaliseAngle();
+    GLFix kx = GLFix(fast_sin(ay));
+    GLFix kz = GLFix(fast_cos(ay));
+    vx /= 2;
+    vz /= 2;
+    vx += kx * GLFix(10);
+    vz += kz * GLFix(10);
+    if(on_ground)
+    {
+        vy /= 2;
+        vy += GLFix(12);
+        const GLFix cap(22);
+        if(vy > cap)
+            vy = cap;
+    }
+
+    if(health < 0)
+        health = 0;
 }
 
 void initChickenEntities()
@@ -292,8 +365,14 @@ void initChickenEntities()
 
 void updateChickenEntities()
 {
-    for(auto &c : chicken_entities)
-        c.update();
+    for(auto it = chicken_entities.begin(); it != chicken_entities.end();)
+    {
+        it->update();
+        if(it->health <= 0 && it->death_time > 20)
+            it = chicken_entities.erase(it);
+        else
+            ++it;
+    }
 }
 
 void renderChickenEntities()

@@ -104,36 +104,60 @@ static bool isPickaxeMinedBlock(const BLOCK block)
     return requiredPickaxeTierForDrop(block) > 0;
 }
 
-/** Left click / KEY_7 primary: punch human in crosshair if closer than block hit (MC melee). */
-static bool tryMeleeHuman()
+/** Left click / KEY_7 primary: punch nearest mob in crosshair if closer than block hit (MC melee). */
+static bool tryMeleeMob()
 {
-    GLFix dx = GLFix(fast_sin(world_task.yr)) * GLFix(fast_cos(world_task.xr));
-    GLFix dy = -GLFix(fast_sin(world_task.xr));
-    GLFix dz = GLFix(fast_cos(world_task.yr)) * GLFix(fast_cos(world_task.xr));
+    GLFix yr = world_task.yr;
+    yr.normaliseAngle();
+    GLFix xr = world_task.xr;
+    xr.normaliseAngle();
+
+    GLFix dx = GLFix(fast_sin(yr)) * GLFix(fast_cos(xr));
+    GLFix dy = -GLFix(fast_sin(xr));
+    GLFix dz = GLFix(fast_cos(yr)) * GLFix(fast_cos(xr));
     const GLFix eye_y = world_task.y + WorldTask::eye_pos;
 
-    HumanEntity *closest = nullptr;
-    GLFix best_dist = GLFix::maxValue();
-
+    HumanEntity *hit_h = nullptr;
+    GLFix h_dist = GLFix::maxValue();
     for(auto &h : human_entities)
     {
         if(!h.isAliveMob())
             continue;
-
         GLFix dist;
         if(h.aabb.intersectsRay(world_task.x, eye_y, world_task.z, dx, dy, dz, dist) == AABB::NONE)
             continue;
         if(dist < GLFix(0))
             continue;
-        if(dist < best_dist)
+        if(dist < h_dist)
         {
-            best_dist = dist;
-            closest = &h;
+            h_dist = dist;
+            hit_h = &h;
         }
     }
 
-    if(!closest)
+    ChickenEntity *hit_c = nullptr;
+    GLFix c_dist = GLFix::maxValue();
+    for(auto &c : chicken_entities)
+    {
+        if(!c.isAliveMob())
+            continue;
+        GLFix dist;
+        if(c.aabb.intersectsRay(world_task.x, eye_y, world_task.z, dx, dy, dz, dist) == AABB::NONE)
+            continue;
+        if(dist < GLFix(0))
+            continue;
+        if(dist < c_dist)
+        {
+            c_dist = dist;
+            hit_c = &c;
+        }
+    }
+
+    if(hit_h == nullptr && hit_c == nullptr)
         return false;
+
+    const bool pick_chicken = hit_c != nullptr && (hit_h == nullptr || c_dist < h_dist);
+    const GLFix best_dist = pick_chicken ? c_dist : h_dist;
 
     VECTOR3 hit_block;
     AABB::SIDE side = AABB::NONE;
@@ -142,7 +166,10 @@ static bool tryMeleeHuman()
     if(got_block && side != AABB::NONE && block_dist <= best_dist)
         return false;
 
-    closest->applyMeleeDamage(2, world_task.yr);
+    if(pick_chicken)
+        hit_c->applyMeleeDamage(2, yr);
+    else
+        hit_h->applyMeleeDamage(2, yr);
     return true;
 }
 
@@ -462,94 +489,95 @@ void WorldTask::logic()
     {
         key_held_down = true;
 
-        if(tryMeleeHuman())
-            return;
-
-        if(selection_side == AABB::NONE)
-            return;
-
-        if(world.intersect(aabb))
-            return;
-
-        if(world.blockAction(selection_pos.x, selection_pos.y, selection_pos.z))
-            return;
-
-        BLOCK_WDATA current_block = world.getBlock(selection_pos.x, selection_pos.y, selection_pos.z),
-                    block_to_place = current_inventory.currentSlot();
-
-        if(getBLOCK(block_to_place) == BLOCK_AIR)
-            return;
-
-        if(getBLOCK(block_to_place) == BLOCK_ITEM)
-            return;
-
-        // When placing fluid onto a non-full fluid block of the same type, "fill" it
-        if(current_block != block_to_place
-           && ((getBLOCK(current_block) == BLOCK_WATER && getBLOCK(block_to_place) == BLOCK_WATER)
-               || (getBLOCK(current_block) == BLOCK_LAVA && getBLOCK(block_to_place) == BLOCK_LAVA)))
+        // Melee first; do not return from logic() so mob updates still run this tick (avoids stale state / render glitches).
+        if(!tryMeleeMob())
         {
-            world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, block_to_place);
-            current_inventory.removeFromCurrentSlot();
-            return;
-        }
+            if(selection_side == AABB::NONE)
+                return;
 
-        VECTOR3 pos = selection_pos;
-        switch(selection_side)
-        {
-        case AABB::BACK:
-            ++pos.z;
-            break;
-        case AABB::FRONT:
-            --pos.z;
-            break;
-        case AABB::LEFT:
-            --pos.x;
-            break;
-        case AABB::RIGHT:
-            ++pos.x;
-            break;
-        case AABB::BOTTOM:
-            --pos.y;
-            break;
-        case AABB::TOP:
-            ++pos.y;
-            break;
-        default:
-            puts("This can't normally happen #1");
-            break;
-        }
+            if(world.intersect(aabb))
+                return;
 
-        current_block = world.getBlock(pos.x, pos.y, pos.z);
+            if(world.blockAction(selection_pos.x, selection_pos.y, selection_pos.z))
+                return;
 
-        //Only set the block if there's air
-        if(current_block == BLOCK_AIR || (in_water && getBLOCK(current_block) == BLOCK_WATER))
-        {
-            bool placed = false;
-            if(!global_block_renderer.isOriented(block_to_place))
+            BLOCK_WDATA current_block = world.getBlock(selection_pos.x, selection_pos.y, selection_pos.z),
+                        block_to_place = current_inventory.currentSlot();
+
+            if(getBLOCK(block_to_place) == BLOCK_AIR)
+                return;
+
+            if(getBLOCK(block_to_place) == BLOCK_ITEM)
+                return;
+
+            // When placing fluid onto a non-full fluid block of the same type, "fill" it
+            if(current_block != block_to_place
+               && ((getBLOCK(current_block) == BLOCK_WATER && getBLOCK(block_to_place) == BLOCK_WATER)
+                   || (getBLOCK(current_block) == BLOCK_LAVA && getBLOCK(block_to_place) == BLOCK_LAVA)))
             {
-                world.changeBlock(pos.x, pos.y, pos.z, block_to_place);
-                placed = true;
-            }
-            else
-            {
-                AABB::SIDE side = selection_side;
-                //If the block is not fully oriented and has been placed on top or bottom of another block, determine the orientation by yr
-                if(!global_block_renderer.isFullyOriented(block_to_place) && (side == AABB::TOP || side == AABB::BOTTOM))
-                    side = yr < GLFix(45) ? AABB::FRONT : yr < GLFix(135) ? AABB::LEFT : yr < GLFix(225) ? AABB::BACK : yr < GLFix(315) ? AABB::RIGHT : AABB::FRONT;
-
-                world.changeBlock(pos.x, pos.y, pos.z, getBLOCKWDATA(block_to_place, side)); //AABB::SIDE is compatible to BLOCK_SIDE
-                placed = true;
-            }
-
-            //If the player is stuck now, it's because of the block change, so remove it again
-            if(placed && world.intersect(aabb))
-            {
-                world.changeBlock(pos.x, pos.y, pos.z, current_block);
-                placed = false;
-            }
-
-            if(placed)
+                world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, block_to_place);
                 current_inventory.removeFromCurrentSlot();
+                return;
+            }
+
+            VECTOR3 pos = selection_pos;
+            switch(selection_side)
+            {
+            case AABB::BACK:
+                ++pos.z;
+                break;
+            case AABB::FRONT:
+                --pos.z;
+                break;
+            case AABB::LEFT:
+                --pos.x;
+                break;
+            case AABB::RIGHT:
+                ++pos.x;
+                break;
+            case AABB::BOTTOM:
+                --pos.y;
+                break;
+            case AABB::TOP:
+                ++pos.y;
+                break;
+            default:
+                puts("This can't normally happen #1");
+                break;
+            }
+
+            current_block = world.getBlock(pos.x, pos.y, pos.z);
+
+            //Only set the block if there's air
+            if(current_block == BLOCK_AIR || (in_water && getBLOCK(current_block) == BLOCK_WATER))
+            {
+                bool placed = false;
+                if(!global_block_renderer.isOriented(block_to_place))
+                {
+                    world.changeBlock(pos.x, pos.y, pos.z, block_to_place);
+                    placed = true;
+                }
+                else
+                {
+                    AABB::SIDE side = selection_side;
+                    //If the block is not fully oriented and has been placed on top or bottom of another block, determine the orientation by yr
+                    if(!global_block_renderer.isFullyOriented(block_to_place) && (side == AABB::TOP || side == AABB::BOTTOM))
+                        side = yr < GLFix(45) ? AABB::FRONT : yr < GLFix(135) ? AABB::LEFT : yr < GLFix(225) ? AABB::BACK : yr < GLFix(315) ? AABB::RIGHT : AABB::FRONT;
+
+                    world.changeBlock(pos.x, pos.y, pos.z, getBLOCKWDATA(block_to_place, side)); //AABB::SIDE is compatible to BLOCK_SIDE
+                    placed = true;
+                }
+
+                //If the player is stuck now, it's because of the block change, so remove it again
+                if(placed && world.intersect(aabb))
+                {
+                    world.changeBlock(pos.x, pos.y, pos.z, current_block);
+                    placed = false;
+                }
+
+                if(placed)
+                    current_inventory.removeFromCurrentSlot();
+            }
         }
     }
     else if(keyPressed(KEY_NSPIRE_9)) //Remove block

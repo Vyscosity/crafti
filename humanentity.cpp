@@ -407,8 +407,10 @@ void HumanEntity::applyMeleeDamage(int amount, GLFix attacker_yaw)
 
     // Push away along player look (WorldTask::getForward: sin(yaw), cos(yaw)). Vanilla subtracts
     // (sin, -cos) in their axes; our forward is (sin, cos), so we add here, not subtract.
-    GLFix kx = GLFix(fast_sin(attacker_yaw));
-    GLFix kz = GLFix(fast_cos(attacker_yaw));
+    GLFix ay = attacker_yaw;
+    ay.normaliseAngle();
+    GLFix kx = GLFix(fast_sin(ay));
+    GLFix kz = GLFix(fast_cos(ay));
     vx /= 2;
     vz /= 2;
     vx += kx * GLFix(10);
