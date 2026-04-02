@@ -36,6 +36,7 @@ struct HumanEntity
     int dir_timer;
 
     bool on_ground;
+    bool loot_spawned;
 
     // Collision bounding box
     AABB aabb;

@@ -25,6 +25,7 @@ struct ChickenEntity
     unsigned ticks_alive;
     int dir_timer;
     bool on_ground;
+    bool loot_spawned;
 
     AABB aabb;
 

@@ -165,6 +165,7 @@ enum class ItemTexture : uint8_t {
     FERMENTED_SPIDER_EYE = 138,
     SPIDER_EYE = 139,
     GLASS_BOTTLE = 140,
+    ROTTEN_FLESH = 141,
     LAPIS_LAZULI = 142,
     LIGHT_BLUE_DYE = 143,
 

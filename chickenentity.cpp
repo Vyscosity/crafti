@@ -7,8 +7,10 @@
 #include "world.h"
 #include "terrain.h"
 #include "fastmath.h"
+#include "grounddrops.h"
 
 #include "textures/chicken.h"
+#include "textures/items.h"
 
 const GLFix ChickenEntity::WIDTH  = GLFix(52);
 const GLFix ChickenEntity::HEIGHT = GLFix(84);
@@ -84,7 +86,7 @@ ChickenEntity::ChickenEntity()
       vx(0), vy(0), vz(0),
       yaw(0), walk_timer(0), swing_intensity(0),
       health(4), hurt_time(0), hurt_resistant(0), death_time(0),
-      ticks_alive(0), dir_timer(50), on_ground(false)
+      ticks_alive(0), dir_timer(50), on_ground(false), loot_spawned(false)
 {
     aabb = { x - WIDTH / 2, y, z - WIDTH / 2, x + WIDTH / 2, y + HEIGHT, z + WIDTH / 2 };
 }
@@ -94,7 +96,7 @@ ChickenEntity::ChickenEntity(GLFix px, GLFix py, GLFix pz)
       vx(0), vy(0), vz(0),
       yaw(GLFix(rand() % 360)), walk_timer(0), swing_intensity(0),
       health(4), hurt_time(0), hurt_resistant(0), death_time(0),
-      ticks_alive(0), dir_timer(rand() % 60), on_ground(false)
+      ticks_alive(0), dir_timer(rand() % 60), on_ground(false), loot_spawned(false)
 {
     aabb = { x - WIDTH / 2, y, z - WIDTH / 2, x + WIDTH / 2, y + HEIGHT, z + WIDTH / 2 };
 }
@@ -107,6 +109,12 @@ void ChickenEntity::update()
         --hurt_resistant;
 
     const bool dead = health <= 0;
+    if(dead && !loot_spawned)
+    {
+        loot_spawned = true;
+        spawnWorldDrop(x, y, z,
+                       getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::RAW_CHICKEN)), 1u);
+    }
     if(dead)
     {
         if(death_time <= 20)

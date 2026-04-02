@@ -24,6 +24,7 @@
 #include "deathtask.h"
 #include "humanentity.h"
 #include "chickenentity.h"
+#include "grounddrops.h"
 
 WorldTask world_task;
 
@@ -629,7 +630,16 @@ void WorldTask::logic()
                 const int required_pickaxe_tier = requiredPickaxeTierForDrop(b_type);
                 const bool can_harvest = required_pickaxe_tier == 0 || pickaxe_tier >= required_pickaxe_tier;
                 if(can_harvest)
-                    current_inventory.addItem(inventoryDropItem(b));
+                {
+                    const BLOCK_WDATA drop_stack = inventoryDropItem(b);
+                    if(getBLOCK(drop_stack) != BLOCK_AIR)
+                    {
+                        const GLFix sx = selection_pos.x * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE / 2);
+                        const GLFix sy = selection_pos.y * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE) + GLFix::minStep();
+                        const GLFix sz = selection_pos.z * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE / 2);
+                        spawnWorldDrop(sx, sy, sz, drop_stack, 1u);
+                    }
+                }
                 world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
                 mining_progress = 0;
             }
@@ -720,6 +730,7 @@ void WorldTask::logic()
     // Update human entity AI/physics every logic tick
     updateHumanEntities();
     updateChickenEntities();
+    updateGroundDrops();
 }
 
 void WorldTask::render()
@@ -745,6 +756,7 @@ void WorldTask::render()
     // Render human entities (binds steve_tex internally)
     renderHumanEntities();
     renderChickenEntities();
+    renderGroundDrops();
     // Re-bind terrain texture for the rest of the world rendering
     glBindTexture(terrain_current);
 
@@ -961,6 +973,7 @@ void WorldTask::resetWorld()
     world.generateSeed();
     initHumanEntities();
     initChickenEntities();
+    clearGroundDrops();
     world.clear();
     current_inventory.reset();
     inventory_task.reset();

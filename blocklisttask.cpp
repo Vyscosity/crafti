@@ -125,6 +125,7 @@ static const BLOCK_WDATA user_items_page_2[] = {
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_BEEF)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::RAW_CHICKEN)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_CHICKEN)),
+    getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::ROTTEN_FLESH)),
 };
 
 struct SelectablePage {

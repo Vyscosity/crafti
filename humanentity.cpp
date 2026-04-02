@@ -8,7 +8,9 @@
 #include "world.h"
 #include "terrain.h"
 #include "fastmath.h"
+#include "grounddrops.h"
 
+#include "textures/items.h"
 #include "textures/steve.h"
 
 // ─── static member definitions ───────────────────────────────────────────────
@@ -37,7 +39,7 @@ HumanEntity::HumanEntity()
       vx(0), vy(0), vz(0),
       yaw(0), walk_timer(0), swing_intensity(0),
       health(20), hurt_time(0), hurt_resistant(0), death_time(0),
-      dir_timer(60), on_ground(false)
+      dir_timer(60), on_ground(false), loot_spawned(false)
 {
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
              x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
@@ -48,7 +50,7 @@ HumanEntity::HumanEntity(GLFix px, GLFix py, GLFix pz)
       vx(0), vy(0), vz(0),
       yaw(GLFix(rand() % 360)), walk_timer(0), swing_intensity(0),
       health(20), hurt_time(0), hurt_resistant(0), death_time(0),
-      dir_timer(rand() % 60), on_ground(false)
+      dir_timer(rand() % 60), on_ground(false), loot_spawned(false)
 {
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
              x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
@@ -63,6 +65,13 @@ void HumanEntity::update()
         --hurt_resistant;
 
     const bool dead = health <= 0;
+    if(dead && !loot_spawned)
+    {
+        loot_spawned = true;
+        const unsigned int n = 1u + static_cast<unsigned int>(rand() % 2);
+        spawnWorldDrop(x, y, z,
+                       getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::ROTTEN_FLESH)), n);
+    }
     if(dead)
     {
         if(death_time <= 20)

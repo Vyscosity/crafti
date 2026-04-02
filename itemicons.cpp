@@ -47,6 +47,31 @@ void drawItemIcon(BLOCK_WDATA block, TEXTURE &dest, int x, int y, int size)
     }
 }
 
+TextureAtlasEntry itemIconAtlasUV(BLOCK_WDATA block)
+{
+    TextureAtlasEntry e{};
+    if(getBLOCK(block) != BLOCK_ITEM)
+        return e;
+
+    const int item_index = static_cast<int>(getBLOCKDATA(block));
+    const int src_x = (item_index % item_atlas_cols) * item_tile_size;
+    const int src_y = (item_index / item_atlas_cols) * item_tile_size;
+
+    if(src_x < 0 || src_y < 0 || src_x + item_tile_size > tex_items.width || src_y + item_tile_size > tex_items.height)
+        return e;
+
+    e.left = static_cast<unsigned>(src_x);
+    e.right = static_cast<unsigned>(src_x + item_tile_size);
+    e.bottom = static_cast<unsigned>(src_y);
+    e.top = static_cast<unsigned>(src_y + item_tile_size);
+    return e;
+}
+
+const TEXTURE *itemsTextureAtlas()
+{
+    return &tex_items;
+}
+
 const char *getItemName(BLOCK_WDATA block)
 {
     if(getBLOCK(block) != BLOCK_ITEM)
@@ -142,6 +167,10 @@ const char *getItemName(BLOCK_WDATA block)
         return "Diamond Leggings";
     case ItemTexture::DIAMOND_BOOTS:
         return "Diamond Boots";
+    case ItemTexture::RAW_CHICKEN:
+        return "Raw Chicken";
+    case ItemTexture::ROTTEN_FLESH:
+        return "Rotten Flesh";
     default:
         return "Item";
     }
