@@ -305,10 +305,10 @@
                                     if(__builtin_expect(tex_v < 0, 0)) tex_v = 0;
                                     else if(__builtin_expect(tex_v >= loc_texture.height, 0)) tex_v = loc_texture.height - 1;
 
-                                    c = loc_texture.bitmap[tex_u + tex_v*loc_texture.width];
+                                    c = ngl_modulate_texel(loc_texture.bitmap[tex_u + tex_v*loc_texture.width]);
                                 }
                             #else
-                                c = loc_texture.bitmap[u.floor() + v.floor()*loc_texture.width];
+                                c = ngl_modulate_texel(loc_texture.bitmap[u.floor() + v.floor()*loc_texture.width]);
                             #endif
 #ifdef TRANSPARENCY
                             if (c != 0x0000) {
@@ -523,10 +523,10 @@
                                     if(__builtin_expect(tex_v < 0, 0)) tex_v = 0;
                                     else if(__builtin_expect(tex_v >= loc_texture.height, 0)) tex_v = loc_texture.height - 1;
 
-                                    c = loc_texture.bitmap[tex_u + tex_v*loc_texture.width];
+                                    c = ngl_modulate_texel(loc_texture.bitmap[tex_u + tex_v*loc_texture.width]);
                                 }
                             #else
-                                c = loc_texture.bitmap[u.floor() + v.floor()*loc_texture.width];
+                                c = ngl_modulate_texel(loc_texture.bitmap[u.floor() + v.floor()*loc_texture.width]);
                             #endif
 #ifdef TRANSPARENCY
                             if (c != 0x0000) {

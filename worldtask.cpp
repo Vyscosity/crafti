@@ -23,6 +23,7 @@
 
 #include "deathtask.h"
 #include "humanentity.h"
+#include "chickenentity.h"
 
 WorldTask world_task;
 
@@ -101,6 +102,48 @@ static int requiredPickaxeTierForDrop(const BLOCK block)
 static bool isPickaxeMinedBlock(const BLOCK block)
 {
     return requiredPickaxeTierForDrop(block) > 0;
+}
+
+/** Left click / KEY_7 primary: punch human in crosshair if closer than block hit (MC melee). */
+static bool tryMeleeHuman()
+{
+    GLFix dx = GLFix(fast_sin(world_task.yr)) * GLFix(fast_cos(world_task.xr));
+    GLFix dy = -GLFix(fast_sin(world_task.xr));
+    GLFix dz = GLFix(fast_cos(world_task.yr)) * GLFix(fast_cos(world_task.xr));
+    const GLFix eye_y = world_task.y + WorldTask::eye_pos;
+
+    HumanEntity *closest = nullptr;
+    GLFix best_dist = GLFix::maxValue();
+
+    for(auto &h : human_entities)
+    {
+        if(!h.isAliveMob())
+            continue;
+
+        GLFix dist;
+        if(h.aabb.intersectsRay(world_task.x, eye_y, world_task.z, dx, dy, dz, dist) == AABB::NONE)
+            continue;
+        if(dist < GLFix(0))
+            continue;
+        if(dist < best_dist)
+        {
+            best_dist = dist;
+            closest = &h;
+        }
+    }
+
+    if(!closest)
+        return false;
+
+    VECTOR3 hit_block;
+    AABB::SIDE side = AABB::NONE;
+    GLFix block_dist;
+    const bool got_block = world.intersectsRay(world_task.x, eye_y, world_task.z, dx, dy, dz, hit_block, side, block_dist, false);
+    if(got_block && side != AABB::NONE && block_dist <= best_dist)
+        return false;
+
+    closest->applyMeleeDamage(2, world_task.yr);
+    return true;
 }
 
 void WorldTask::makeCurrent()
@@ -419,6 +462,9 @@ void WorldTask::logic()
     {
         key_held_down = true;
 
+        if(tryMeleeHuman())
+            return;
+
         if(selection_side == AABB::NONE)
             return;
 
@@ -645,6 +691,7 @@ void WorldTask::logic()
 #endif
     // Update human entity AI/physics every logic tick
     updateHumanEntities();
+    updateChickenEntities();
 }
 
 void WorldTask::render()
@@ -669,6 +716,7 @@ void WorldTask::render()
 
     // Render human entities (binds steve_tex internally)
     renderHumanEntities();
+    renderChickenEntities();
     // Re-bind terrain texture for the rest of the world rendering
     glBindTexture(terrain_current);
 
@@ -884,6 +932,7 @@ void WorldTask::resetWorld()
     xr = yr = 0;
     world.generateSeed();
     initHumanEntities();
+    initChickenEntities();
     world.clear();
     current_inventory.reset();
     inventory_task.reset();

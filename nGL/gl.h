@@ -155,6 +155,9 @@ void glTranslatef(const GLFix x, const GLFix y, const GLFix z);
 void glBindTexture(const TEXTURE *tex);
 void glTexCoord2f(const GLFix nu, const GLFix nv);
 void glColor3f(const GLFix r, const GLFix g, const GLFix b);
+/** Multiply sampled texture RGB by (r,g,b) until nglResetTextureModulate(). Default (1,1,1). */
+void nglSetTextureModulate(const GLFix r, const GLFix g, const GLFix b);
+void nglResetTextureModulate();
 void glVertex3f(const GLFix x, const GLFix y, const GLFix z);
 void glScale3f(const GLFix x, const GLFix y, const GLFix z);
 void glPushMatrix();

@@ -367,6 +367,31 @@ COLOR colorRGB(const GLFix r, const GLFix g, const GLFix b)
     return ((r1 & 0b11111) << 11) | ((g1 & 0b111111) << 5) | (b1 & 0b11111);
 }
 
+static GLFix ngl_tex_mod_r(1), ngl_tex_mod_g(1), ngl_tex_mod_b(1);
+
+void nglSetTextureModulate(const GLFix r, const GLFix g, const GLFix b)
+{
+    ngl_tex_mod_r = r;
+    ngl_tex_mod_g = g;
+    ngl_tex_mod_b = b;
+}
+
+void nglResetTextureModulate()
+{
+    ngl_tex_mod_r = ngl_tex_mod_g = ngl_tex_mod_b = GLFix(1);
+}
+
+static COLOR ngl_modulate_texel(COLOR c)
+{
+    if(ngl_tex_mod_r == GLFix(1) && ngl_tex_mod_g == GLFix(1) && ngl_tex_mod_b == GLFix(1))
+        return c;
+    RGB rgb = rgbColor(c);
+    rgb.r = rgb.r * ngl_tex_mod_r;
+    rgb.g = rgb.g * ngl_tex_mod_g;
+    rgb.b = rgb.b * ngl_tex_mod_b;
+    return colorRGB(rgb);
+}
+
 GLFix nglZBufferAt(const unsigned int x, const unsigned int y)
 {
     if(x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT)

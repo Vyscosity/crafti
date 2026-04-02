@@ -35,7 +35,9 @@ static inline TextureAtlasEntry mirrorU(TextureAtlasEntry t)
 HumanEntity::HumanEntity()
     : x(0), y(GLFix(World::HEIGHT * Chunk::SIZE) * BLOCK_SIZE), z(0),
       vx(0), vy(0), vz(0),
-      yaw(0), walk_timer(0), swing_intensity(0), dir_timer(60), on_ground(false)
+      yaw(0), walk_timer(0), swing_intensity(0),
+      health(20), hurt_time(0), hurt_resistant(0), death_time(0),
+      dir_timer(60), on_ground(false)
 {
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
              x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
@@ -45,6 +47,7 @@ HumanEntity::HumanEntity(GLFix px, GLFix py, GLFix pz)
     : x(px), y(py), z(pz),
       vx(0), vy(0), vz(0),
       yaw(GLFix(rand() % 360)), walk_timer(0), swing_intensity(0),
+      health(20), hurt_time(0), hurt_resistant(0), death_time(0),
       dir_timer(rand() % 60), on_ground(false)
 {
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
@@ -54,80 +57,117 @@ HumanEntity::HumanEntity(GLFix px, GLFix py, GLFix pz)
 // ─── update ──────────────────────────────────────────────────────────────────
 void HumanEntity::update()
 {
-    // ── AI: random direction changes ──────────────────────────────────────
-    if (--dir_timer <= 0)
+    if(hurt_time > 0)
+        --hurt_time;
+    if(hurt_resistant > 0)
+        --hurt_resistant;
+
+    const bool dead = health <= 0;
+    if(dead)
     {
-        int r = rand() % 8;
-        const GLFix speed(3);
-        if (r < 6)
+        if(death_time <= 20)
+            ++death_time;
+        vx *= GLFix(0.92f);
+        vz *= GLFix(0.92f);
+    }
+    else
+    {
+        // ── AI: random direction changes ──────────────────────────────
+        if(--dir_timer <= 0)
         {
-            yaw = GLFix(rand() % 360);
-            vx = GLFix(fast_sin(yaw)) * speed;
-            vz = GLFix(fast_cos(yaw)) * speed;
+            int r = rand() % 8;
+            const GLFix speed(4);
+            if(r < 6)
+            {
+                yaw = GLFix(rand() % 360);
+                vx = GLFix(fast_sin(yaw)) * speed;
+                vz = GLFix(fast_cos(yaw)) * speed;
+            }
+            else
+            {
+                vx = 0;
+                vz = 0;
+            }
+            dir_timer = 40 + rand() % 80;
         }
-        else
-        {
-            vx = 0; vz = 0;
-        }
-        dir_timer = 40 + rand() % 80;
     }
 
     GLFix old_x = x;
     GLFix old_z = z;
 
-    if (!world.intersect(aabb))
+    if(!world.intersect(aabb))
     {
-        // ── Horizontal movement ───────────────────────────────────────────
         AABB moved = aabb;
-        moved.low_x += vx; moved.high_x += vx;
-        if (!world.intersect(moved)) { x += vx; aabb = moved; }
-        else { vx = -vx; dir_timer = 0; }   // bounce, re-decide next tick
+        moved.low_x += vx;
+        moved.high_x += vx;
+        if(!world.intersect(moved))
+        {
+            x += vx;
+            aabb = moved;
+        }
+        else
+        {
+            vx = -vx;
+            dir_timer = 0;
+        }
 
         moved = aabb;
-        moved.low_z += vz; moved.high_z += vz;
-        if (!world.intersect(moved)) { z += vz; aabb = moved; }
-        else { vz = -vz; dir_timer = 0; }
-
-        // ── Vertical (gravity) ────────────────────────────────────────────
-        AABB moved_y = aabb;
-        moved_y.low_y += vy; moved_y.high_y += vy;
-        bool hit = world.intersect(moved_y);
-        if (!hit)
+        moved.low_z += vz;
+        moved.high_z += vz;
+        if(!world.intersect(moved))
         {
-            y += vy; aabb = moved_y;
+            z += vz;
+            aabb = moved;
+        }
+        else
+        {
+            vz = -vz;
+            dir_timer = 0;
+        }
+
+        AABB moved_y = aabb;
+        moved_y.low_y += vy;
+        moved_y.high_y += vy;
+        bool hit = world.intersect(moved_y);
+        if(!hit)
+        {
+            y += vy;
+            aabb = moved_y;
             on_ground = false;
         }
         else
         {
-            if (vy < GLFix(0)) on_ground = true;
+            if(vy < GLFix(0))
+                on_ground = true;
             vy = 0;
         }
-        vy -= GLFix(5); // gravity
+        vy -= GLFix(5);
 
-        // Occasionally jump over obstacles
-        if (on_ground && (vx != GLFix(0) || vz != GLFix(0)) && (rand() % 80 == 0))
+        if(!dead && on_ground && (vx != GLFix(0) || vz != GLFix(0)) && (rand() % 80 == 0))
         {
             vy = GLFix(50);
             on_ground = false;
         }
     }
 
-    // Sync bounding box
-    aabb = { x - WIDTH/2, y, z - WIDTH/2,
-             x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
+    aabb = { x - WIDTH/2, y, z - WIDTH/2, x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
 
-    // EntityLivingBase: limbSwingAmount += (target - limbSwingAmount) * 0.4,
-    // target from horizontal distance moved this tick, clamped to 1.
+    if(dead)
+    {
+        swing_intensity *= GLFix(0.85f);
+        return;
+    }
+
     GLFix dx = x - old_x;
     GLFix dz = z - old_z;
     GLFix actual_dist = GLFix(std::sqrt((float)(dx * dx + dz * dz)));
     GLFix target_amp = actual_dist * GLFix(0.33f);
-    if (target_amp > GLFix(1)) target_amp = GLFix(1);
+    if(target_amp > GLFix(1))
+        target_amp = GLFix(1);
     swing_intensity += (target_amp - swing_intensity) * GLFix(0.4f);
 
-    // Advance walk phase only while moving (same rate as before).
     GLFix horizontal_speed = GLFix(std::sqrt((float)(vx * vx + vz * vz)));
-    if (horizontal_speed > GLFix(0))
+    if(horizontal_speed > GLFix(0))
     {
         walk_timer += horizontal_speed * GLFix(1.66f);
         walk_timer.normaliseAngle();
@@ -216,6 +256,15 @@ static void drawBipedBox(
 
 void HumanEntity::render() const
 {
+    if(health <= 0 && death_time > 20)
+        return;
+
+    if(hurt_time > 0)
+    {
+        GLFix t = GLFix(hurt_time) / GLFix(10);
+        nglSetTextureModulate(GLFix(1), GLFix(1) - t * GLFix(0.52f), GLFix(1) - t * GLFix(0.48f));
+    }
+
     // S: 1 MC model pixel = BLOCK_SIZE/16 nGL units
     const GLFix S = GLFix(BLOCK_SIZE) / GLFix(16);
 
@@ -259,6 +308,18 @@ void HumanEntity::render() const
     glPushMatrix();
     glTranslatef(x, y, z);
     nglRotateY(render_yaw);
+
+    // RenderLivingBase.applyRotations: death tilt around Z (sqrt ease, up to 90°)
+    if(health <= 0 && death_time > 0)
+    {
+        float df = float(death_time - 1) / 20.0f * 1.6f;
+        if(df < 0.f)
+            df = 0.f;
+        float f = std::sqrt(df);
+        if(f > 1.f)
+            f = 1.f;
+        nglRotateZ(GLFix(f * 90.0f));
+    }
 
     // ─────────────────────────────────────────────────────────────────────
     // MC model coordinate system: Y increases DOWNWARD, Y=0 is neck level,
@@ -331,6 +392,38 @@ void HumanEntity::render() const
     glPopMatrix();
 
     glPopMatrix();
+
+    nglResetTextureModulate();
+}
+
+void HumanEntity::applyMeleeDamage(int amount, GLFix attacker_yaw)
+{
+    if(health <= 0 || hurt_resistant > 0)
+        return;
+
+    health -= amount;
+    hurt_time = 10;
+    hurt_resistant = 10;
+
+    // Push away along player look (WorldTask::getForward: sin(yaw), cos(yaw)). Vanilla subtracts
+    // (sin, -cos) in their axes; our forward is (sin, cos), so we add here, not subtract.
+    GLFix kx = GLFix(fast_sin(attacker_yaw));
+    GLFix kz = GLFix(fast_cos(attacker_yaw));
+    vx /= 2;
+    vz /= 2;
+    vx += kx * GLFix(10);
+    vz += kz * GLFix(10);
+    if(on_ground)
+    {
+        vy /= 2;
+        vy += GLFix(12);
+        const GLFix cap(22);
+        if(vy > cap)
+            vy = cap;
+    }
+
+    if(health < 0)
+        health = 0;
 }
 
 
@@ -350,8 +443,14 @@ void initHumanEntities()
 
 void updateHumanEntities()
 {
-    for (auto &h : human_entities)
-        h.update();
+    for(auto it = human_entities.begin(); it != human_entities.end();)
+    {
+        it->update();
+        if(it->health <= 0 && it->death_time > 20)
+            it = human_entities.erase(it);
+        else
+            ++it;
+    }
 }
 
 void renderHumanEntities()

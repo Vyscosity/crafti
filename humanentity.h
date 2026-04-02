@@ -26,6 +26,12 @@ struct HumanEntity
     // ~1 when moving. Limb rotations are scaled by this so limbs settle down when still.
     GLFix swing_intensity;
 
+    // Survival / melee (Minecraft-style)
+    int health;
+    int hurt_time;
+    int hurt_resistant;
+    int death_time;
+
     // Ticks remaining before the AI picks a new direction
     int dir_timer;
 
@@ -44,6 +50,11 @@ struct HumanEntity
 
     // One game-logic tick: AI + physics
     void update();
+
+    // Player melee: damage, knockback (EntityLivingBase.knockBack), hurt flash. attacker_yaw in degrees.
+    void applyMeleeDamage(int amount, GLFix attacker_yaw);
+
+    bool isAliveMob() const { return health > 0; }
 
     // Emit all 6 faces of all body parts via nglAddVertex.
     // Call between glBegin(GL_QUADS) / glEnd().
