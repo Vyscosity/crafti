@@ -35,7 +35,7 @@ static inline TextureAtlasEntry mirrorU(TextureAtlasEntry t)
 HumanEntity::HumanEntity()
     : x(0), y(GLFix(World::HEIGHT * Chunk::SIZE) * BLOCK_SIZE), z(0),
       vx(0), vy(0), vz(0),
-      yaw(0), walk_timer(0), dir_timer(60), on_ground(false)
+      yaw(0), walk_timer(0), swing_intensity(0), dir_timer(60), on_ground(false)
 {
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
              x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
@@ -44,7 +44,7 @@ HumanEntity::HumanEntity()
 HumanEntity::HumanEntity(GLFix px, GLFix py, GLFix pz)
     : x(px), y(py), z(pz),
       vx(0), vy(0), vz(0),
-      yaw(GLFix(rand() % 360)), walk_timer(0),
+      yaw(GLFix(rand() % 360)), walk_timer(0), swing_intensity(0),
       dir_timer(rand() % 60), on_ground(false)
 {
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
@@ -71,6 +71,9 @@ void HumanEntity::update()
         }
         dir_timer = 40 + rand() % 80;
     }
+
+    GLFix old_x = x;
+    GLFix old_z = z;
 
     if (!world.intersect(aabb))
     {
@@ -113,17 +116,21 @@ void HumanEntity::update()
     aabb = { x - WIDTH/2, y, z - WIDTH/2,
              x + WIDTH/2, y + HEIGHT, z + WIDTH/2 };
 
-    // Advance walk-cycle based on horizontal speed
+    // EntityLivingBase: limbSwingAmount += (target - limbSwingAmount) * 0.4,
+    // target from horizontal distance moved this tick, clamped to 1.
+    GLFix dx = x - old_x;
+    GLFix dz = z - old_z;
+    GLFix actual_dist = GLFix(std::sqrt((float)(dx * dx + dz * dz)));
+    GLFix target_amp = actual_dist * GLFix(0.33f);
+    if (target_amp > GLFix(1)) target_amp = GLFix(1);
+    swing_intensity += (target_amp - swing_intensity) * GLFix(0.4f);
+
+    // Advance walk phase only while moving (same rate as before).
     GLFix horizontal_speed = GLFix(std::sqrt((float)(vx * vx + vz * vz)));
     if (horizontal_speed > GLFix(0))
     {
-        // 5 degrees per tick at speed 3
-        walk_timer += horizontal_speed * GLFix(1.66f); 
+        walk_timer += horizontal_speed * GLFix(1.66f);
         walk_timer.normaliseAngle();
-    }
-    else
-    {
-        walk_timer = 0; // Reset when standing still
     }
 }
 
@@ -234,11 +241,11 @@ void HumanEntity::render() const
     const GLFix cos_t = fast_cos(t);
     const GLFix neg_cos_t = -cos_t;
 
-    // Scale to degrees for rotation logic.
-    GLFix la_ang = cos_t     * GLFix(45);   // Left arm
-    GLFix ra_ang = neg_cos_t * GLFix(45);   // Right arm
-    GLFix rl_ang = cos_t     * GLFix(40);   // Right leg
-    GLFix ll_ang = neg_cos_t * GLFix(40);   // Left leg
+    // Scale like ModelBiped: cos terms × limbSwingAmount so rest is 0, not cos(0)×45°.
+    GLFix la_ang = cos_t     * GLFix(45) * swing_intensity;
+    GLFix ra_ang = neg_cos_t * GLFix(45) * swing_intensity;
+    GLFix rl_ang = cos_t     * GLFix(40) * swing_intensity;
+    GLFix ll_ang = neg_cos_t * GLFix(40) * swing_intensity;
 
     la_ang.normaliseAngle(); ra_ang.normaliseAngle();
     rl_ang.normaliseAngle(); ll_ang.normaliseAngle();

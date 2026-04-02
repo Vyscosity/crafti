@@ -19,8 +19,12 @@ struct HumanEntity
     // Horizontal facing direction (degrees)
     GLFix yaw;
 
-    // Walk-cycle phase (radians, advances when moving)
+    // Walk-cycle phase (degrees); advances while moving.
     GLFix walk_timer;
+
+    // Smoothed walk amplitude (like EntityLivingBase.limbSwingAmount): 0 at rest,
+    // ~1 when moving. Limb rotations are scaled by this so limbs settle down when still.
+    GLFix swing_intensity;
 
     // Ticks remaining before the AI picks a new direction
     int dir_timer;
