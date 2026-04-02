@@ -171,6 +171,8 @@ const char *getItemName(BLOCK_WDATA block)
         return "Raw Chicken";
     case ItemTexture::ROTTEN_FLESH:
         return "Rotten Flesh";
+    case ItemTexture::GUNPOWDER:
+        return "Gunpowder";
     default:
         return "Item";
     }

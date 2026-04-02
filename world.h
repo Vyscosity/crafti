@@ -62,6 +62,9 @@ public:
     Chunk *findChunk(int x, int y, int z) const;
     void spawnDestructionParticles(int x, int y, int z);
 
+    /** Same sphere + chained TNT as TNTRenderer::explode (global block coordinates). */
+    void explosionTNT(int block_x, int block_y, int block_z);
+
     static constexpr int HEIGHT = 5;
 
     void processBuildQueue(); // Process one chunk from the build queue

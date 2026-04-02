@@ -356,6 +356,33 @@ void World::spawnDestructionParticles(int x, int y, int z)
     return c->spawnDestructionParticles(cx, cy, cz);
 }
 
+void World::explosionTNT(int gx, int gy, int gz)
+{
+    spawnDestructionParticles(gx, gy, gz);
+    changeBlock(gx, gy, gz, BLOCK_AIR);
+
+    const int dist = 3;
+    for(int ox = -dist; ox <= dist; ++ox)
+        for(int oy = -dist; oy <= dist; ++oy)
+            for(int oz = -dist; oz <= dist; ++oz)
+            {
+                if(gy + oy < 1 || gy + oy >= World::HEIGHT * Chunk::SIZE)
+                    continue;
+                if(ox * ox + oy * oy + oz * oz > dist * dist)
+                    continue;
+
+                const int nx = gx + ox, ny = gy + oy, nz = gz + oz;
+                const BLOCK block = getBLOCK(getBlock(nx, ny, nz));
+                if(block == BLOCK_TNT)
+                    explosionTNT(nx, ny, nz);
+                else if(block != BLOCK_BEDROCK && block != BLOCK_AIR)
+                {
+                    spawnDestructionParticles(nx, ny, nz);
+                    changeBlock(nx, ny, nz, BLOCK_AIR);
+                }
+            }
+}
+
 Chunk* World::generateChunk(int x, int y, int z)
 {
     if(Chunk *c = findChunk(x - 1, y, z))

@@ -1,9 +1,13 @@
-OBJS := font_bmp.h font_dat.h inventory.h inventory2.h crafting_table.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h items_texture.h steve.h chicken.h
+OBJS := font_bmp.h font_dat.h inventory.h inventory2.h crafting_table.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h items_texture.h steve.h chicken.h creeper.h
 
 all: $(OBJS)
 
 %.h: %.bmp
 	ConvertImg --format=ngl $^ $@
+
+# Prefer ConvertImg when installed; else RGB565 emitter from creeper.png
+creeper.h: creeper.png gen_creeper_h.py
+	@command -v ConvertImg >/dev/null 2>&1 && ConvertImg --format=ngl creeper.png creeper.h || python3 gen_creeper_h.py
 
 %.h: %.png
 	ConvertImg --format=ngl $^ $@

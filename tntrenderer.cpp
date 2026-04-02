@@ -1,5 +1,3 @@
-#include <cstdlib>
-
 #include "world.h"
 #include "tntrenderer.h"
 
@@ -11,34 +9,8 @@ void TNTRenderer::tick(const BLOCK_WDATA /*block*/, int local_x, int local_y, in
 
 void TNTRenderer::explode(const int local_x, const int local_y, const int local_z, Chunk &c)
 {
-    c.spawnDestructionParticles(local_x, local_y, local_z);
-    c.setGlobalBlockRelative(local_x, local_y, local_z, BLOCK_AIR);
-
-    // Destroy everything in a sphere with a 3 block radius
-    const int dist = 3;
-
-    for(int x = -dist; x <= dist; ++x)
-        for(int y = -dist; y <= dist; ++y)
-            for(int z = -dist; z <= dist; ++z)
-            {
-                if(local_y + y + Chunk::SIZE * c.y < 1 || local_y + y + Chunk::SIZE * c.y >= World::HEIGHT*Chunk::SIZE)
-                    continue;
-
-                if(x*x + y*y + z*z > dist*dist)
-                    continue;
-
-                //Explode other TNT blocks
-                auto block = getBLOCK(c.getGlobalBlockRelative(local_x + x, local_y + y, local_z + z));
-                if(block == BLOCK_TNT)
-                    explode(local_x + x, local_y + y, local_z + z, c);
-                else if(block != BLOCK_BEDROCK && block != BLOCK_AIR)
-                {
-                    int global_x = local_x + x + c.x * Chunk::SIZE;
-                    int global_y = local_y + y + c.y * Chunk::SIZE;
-                    int global_z = local_z + z + c.z * Chunk::SIZE;
-
-                    world.spawnDestructionParticles(global_x, global_y, global_z);
-                    c.changeGlobalBlockRelative(local_x + x, local_y + y, local_z + z, BLOCK_AIR);
-                }
-            }
+    const int gx = local_x + c.x * Chunk::SIZE;
+    const int gy = local_y + c.y * Chunk::SIZE;
+    const int gz = local_z + c.z * Chunk::SIZE;
+    world.explosionTNT(gx, gy, gz);
 }

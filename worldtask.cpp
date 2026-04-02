@@ -24,6 +24,7 @@
 #include "deathtask.h"
 #include "humanentity.h"
 #include "chickenentity.h"
+#include "creeperentity.h"
 #include "grounddrops.h"
 
 WorldTask world_task;
@@ -154,11 +155,46 @@ static bool tryMeleeMob()
         }
     }
 
-    if(hit_h == nullptr && hit_c == nullptr)
+    CreeperEntity *hit_cr = nullptr;
+    GLFix cr_dist = GLFix::maxValue();
+    for(auto &cr : creeper_entities)
+    {
+        if(!cr.isAliveMob())
+            continue;
+        GLFix dist;
+        if(cr.aabb.intersectsRay(world_task.x, eye_y, world_task.z, dx, dy, dz, dist) == AABB::NONE)
+            continue;
+        if(dist < GLFix(0))
+            continue;
+        if(dist < cr_dist)
+        {
+            cr_dist = dist;
+            hit_cr = &cr;
+        }
+    }
+
+    if(hit_h == nullptr && hit_c == nullptr && hit_cr == nullptr)
         return false;
 
-    const bool pick_chicken = hit_c != nullptr && (hit_h == nullptr || c_dist < h_dist);
-    const GLFix best_dist = pick_chicken ? c_dist : h_dist;
+    GLFix best_dist = GLFix::maxValue();
+    int pick = -1; // 0 human, 1 chicken, 2 creeper
+    if(hit_h != nullptr && h_dist < best_dist)
+    {
+        best_dist = h_dist;
+        pick = 0;
+    }
+    if(hit_c != nullptr && c_dist < best_dist)
+    {
+        best_dist = c_dist;
+        pick = 1;
+    }
+    if(hit_cr != nullptr && cr_dist < best_dist)
+    {
+        best_dist = cr_dist;
+        pick = 2;
+    }
+    if(pick < 0)
+        return false;
 
     VECTOR3 hit_block;
     AABB::SIDE side = AABB::NONE;
@@ -167,11 +203,31 @@ static bool tryMeleeMob()
     if(got_block && side != AABB::NONE && block_dist <= best_dist)
         return false;
 
-    if(pick_chicken)
+    if(pick == 1)
         hit_c->applyMeleeDamage(2, yr);
+    else if(pick == 2)
+        hit_cr->applyMeleeDamage(2, yr);
     else
         hit_h->applyMeleeDamage(2, yr);
     return true;
+}
+
+void WorldTask::hurtPlayer(unsigned int dmg, const char *msg)
+{
+    if(dmg == 0)
+        return;
+    if(dmg >= hearts)
+        hearts = 0;
+    else
+        hearts -= dmg;
+
+    if(hearts == 0)
+    {
+        death_task.makeCurrent();
+        return;
+    }
+    if(msg && msg[0])
+        setMessage(msg);
 }
 
 void WorldTask::makeCurrent()
@@ -730,6 +786,7 @@ void WorldTask::logic()
     // Update human entity AI/physics every logic tick
     updateHumanEntities();
     updateChickenEntities();
+    updateCreeperEntities();
     updateGroundDrops();
 }
 
@@ -756,6 +813,7 @@ void WorldTask::render()
     // Render human entities (binds steve_tex internally)
     renderHumanEntities();
     renderChickenEntities();
+    renderCreeperEntities();
     renderGroundDrops();
     // Re-bind terrain texture for the rest of the world rendering
     glBindTexture(terrain_current);
@@ -973,6 +1031,7 @@ void WorldTask::resetWorld()
     world.generateSeed();
     initHumanEntities();
     initChickenEntities();
+    initCreeperEntities();
     clearGroundDrops();
     world.clear();
     current_inventory.reset();

@@ -23,6 +23,9 @@ public:
 
     void setMessage(const char *message);
 
+    /** Player damage from mobs / hazards (hearts, death screen, optional HUD message). */
+    void hurtPlayer(unsigned int dmg, const char *msg = "Ouch!");
+
     unsigned int frameCount() { return frame_counter; }
 
 private:
