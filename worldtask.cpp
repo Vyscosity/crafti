@@ -22,6 +22,7 @@
 #include "textures/inventory.h"
 
 #include "deathtask.h"
+#include "humanentity.h"
 
 WorldTask world_task;
 
@@ -642,6 +643,8 @@ void WorldTask::logic()
         }
     }
 #endif
+    // Update human entity AI/physics every logic tick
+    updateHumanEntities();
 }
 
 void WorldTask::render()
@@ -663,6 +666,11 @@ void WorldTask::render()
     glBindTexture(terrain_current);
 
     world.render();
+
+    // Render human entities (binds steve_tex internally)
+    renderHumanEntities();
+    // Re-bind terrain texture for the rest of the world rendering
+    glBindTexture(terrain_current);
 
     // Draw selection / breaking indication.
     TextureAtlasEntry tex;
@@ -875,6 +883,7 @@ void WorldTask::resetWorld()
     y = World::HEIGHT * Chunk::SIZE * BLOCK_SIZE;
     xr = yr = 0;
     world.generateSeed();
+    initHumanEntities();
     world.clear();
     current_inventory.reset();
     inventory_task.reset();
