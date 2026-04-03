@@ -34,7 +34,7 @@ public:
     virtual void makeCurrent() override;
 
     virtual void render() override;
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
 
     unsigned int getValue(unsigned int entry) const;
 

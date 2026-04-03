@@ -23,7 +23,7 @@ public:
     virtual void makeCurrent() override;
 
     virtual void render() override;
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
 
 private:
     int menu_selected_item = 0;

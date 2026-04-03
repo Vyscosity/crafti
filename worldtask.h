@@ -11,7 +11,7 @@ class WorldTask : public Task
 public:
     virtual void makeCurrent() override;
 
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
     virtual void render() override;
 
     void resetWorld();
@@ -67,6 +67,11 @@ private:
 
     bool draw_inventory = true;
     unsigned int frame_counter = 0; // Incremented after each render
+
+    /** Fractional simulation ticks carried across frames (mobs / ground drops). */
+    GLFix sim_tick_accum = 0;
+    /** Fractional mining progress toward the next integer tick. */
+    GLFix mining_tick_accum = 0;
 };
 
 extern WorldTask world_task;

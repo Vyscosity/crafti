@@ -14,7 +14,7 @@ public:
     virtual void makeCurrent() override;
 
     virtual void render() override;
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
 
 private:
     static constexpr int background_width = SCREEN_WIDTH - 40, background_height = SCREEN_HEIGHT - 40;

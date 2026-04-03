@@ -157,7 +157,7 @@ void StartTask::render()
     drawStringCenter("Use 8/2 or Up/Down to move; 5 or Return to select", 0xFFFF, *screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT - 16);
 }
 
-void StartTask::logic()
+void StartTask::logic(GLFix /*dt*/)
 {
     if(key_held_down)
         key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_UP) || keyPressed(KEY_NSPIRE_DOWN) || keyPressed(KEY_NSPIRE_2) || keyPressed(KEY_NSPIRE_8) || keyPressed(KEY_NSPIRE_5) || keyPressed(KEY_NSPIRE_ENTER);

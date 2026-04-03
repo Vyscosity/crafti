@@ -47,7 +47,7 @@ void HelpTask::render()
                "Textures from PureBDcraft by https://bdcraft.net", 0xFFFF, *screen, x + 10, y + 8);
 }
 
-void HelpTask::logic()
+void HelpTask::logic(GLFix /*dt*/)
 {
     if(key_held_down)
         key_held_down = keyPressed(KEY_NSPIRE_ESC);

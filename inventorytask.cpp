@@ -1205,7 +1205,7 @@ void InventoryTask::render()
 #endif
 }
 
-void InventoryTask::logic()
+void InventoryTask::logic(GLFix /*dt*/)
 {
 #ifndef _TINSPIRE
     SDL_PumpEvents();

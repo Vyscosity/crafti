@@ -269,7 +269,7 @@ GLFix WorldTask::speed()
     return base;
 }
 
-void WorldTask::logic()
+void WorldTask::logic(GLFix dt)
 {
     GLFix dx = 0, dz = 0;
 
@@ -307,6 +307,9 @@ void WorldTask::logic()
         dz += dz1;
     }
 
+    dx *= dt;
+    dz *= dt;
+
     if(!world.intersect(aabb))
     {
         AABB aabb_moved = aabb;
@@ -331,8 +334,8 @@ void WorldTask::logic()
 
         const GLFix vy_before = vy;
         aabb_moved = aabb;
-        aabb_moved.low_y += vy;
-        aabb_moved.high_y += vy;
+        aabb_moved.low_y += vy * dt;
+        aabb_moved.high_y += vy * dt;
 
         can_jump = world.intersect(aabb_moved);
 
@@ -340,12 +343,12 @@ void WorldTask::logic()
 
         if(!can_jump)
         {
-            y += vy;
+            y += vy * dt;
             aabb = aabb_moved;
 
             // While falling (downward velocity) and we actually move, accumulate fall distance.
             if(vy_before < GLFix(0))
-                fall_distance += -vy_before;
+                fall_distance += (-vy_before) * dt;
         }
         else if(vy > GLFix(0))
         {
@@ -355,7 +358,7 @@ void WorldTask::logic()
         else
             vy = 0;
 
-        vy -= 5;
+        vy -= GLFix(5) * dt;
 
         in_water = getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER
                 || getBLOCK(world.getBlock((x / BLOCK_SIZE).floor(), ((y + eye_pos) / BLOCK_SIZE).floor(), (z / BLOCK_SIZE).floor())) == BLOCK_WATER_FAST;
@@ -421,32 +424,32 @@ void WorldTask::logic()
             switch(touchpad.arrow)
             {
             case TPAD_ARROW_DOWN:
-                xr += speed()/2;
+                xr += speed()/2 * dt;
                 break;
             case TPAD_ARROW_UP:
-                xr -= speed()/2;
+                xr -= speed()/2 * dt;
                 break;
             case TPAD_ARROW_LEFT:
-                yr -= speed()/2;
+                yr -= speed()/2 * dt;
                 break;
             case TPAD_ARROW_RIGHT:
-                yr += speed()/2;
+                yr += speed()/2 * dt;
                 break;
             case TPAD_ARROW_RIGHTDOWN:
-                xr += speed()/2;
-                yr += speed()/2;
+                xr += speed()/2 * dt;
+                yr += speed()/2 * dt;
                 break;
             case TPAD_ARROW_UPRIGHT:
-                xr -= speed()/2;
-                yr += speed()/2;
+                xr -= speed()/2 * dt;
+                yr += speed()/2 * dt;
                 break;
             case TPAD_ARROW_DOWNLEFT:
-                xr += speed()/2;
-                yr -= speed()/2;
+                xr += speed()/2 * dt;
+                yr -= speed()/2 * dt;
                 break;
             case TPAD_ARROW_LEFTUP:
-                xr -= speed()/2;
-                yr -= speed()/2;
+                xr -= speed()/2 * dt;
+                yr -= speed()/2 * dt;
                 break;
             }
         }
@@ -463,14 +466,14 @@ void WorldTask::logic()
     else
     {
         if(keyPressed(KEY_NSPIRE_UP))
-            xr -= speed()/3;
+            xr -= speed()/3 * dt;
         else if(keyPressed(KEY_NSPIRE_DOWN))
-            xr += speed()/3;
+            xr += speed()/3 * dt;
 
         if(keyPressed(KEY_NSPIRE_LEFT))
-            yr -= speed()/3;
+            yr -= speed()/3 * dt;
         else if(keyPressed(KEY_NSPIRE_RIGHT))
-            yr += speed()/3;
+            yr += speed()/3 * dt;
     }
 
     //Normalisation required for rotation with nglRotate
@@ -524,7 +527,11 @@ void WorldTask::logic()
 
     do_test = !do_test;
 
-    if(!keyPressed(KEY_NSPIRE_9)) mining_progress = 0;
+    if(!keyPressed(KEY_NSPIRE_9))
+    {
+        mining_progress = 0;
+        mining_tick_accum = 0;
+    }
 
     if(key_held_down)
     {
@@ -648,6 +655,7 @@ void WorldTask::logic()
             if (mining_pos.x != selection_pos.x || mining_pos.y != selection_pos.y || mining_pos.z != selection_pos.z) {
                 mining_pos = selection_pos;
                 mining_progress = 0;
+                mining_tick_accum = 0;
 
                 mining_duration = 30; // Default
                 if (b_type == BLOCK_DIRT || b_type == BLOCK_SAND || b_type == BLOCK_LEAVES || b_type == BLOCK_GRASS) mining_duration = 10;
@@ -675,34 +683,42 @@ void WorldTask::logic()
                         mining_duration = 3;
                 }
             }
-            mining_progress++;
+            mining_tick_accum += dt;
+            while(mining_tick_accum >= GLFix(1))
+            {
+                mining_tick_accum -= GLFix(1);
+                mining_progress++;
 
-            if (mining_progress % 10 == 0) {
-                world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
-            }
-
-            if (mining_progress >= mining_duration) {
-                world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
-                const int required_pickaxe_tier = requiredPickaxeTierForDrop(b_type);
-                const bool can_harvest = required_pickaxe_tier == 0 || pickaxe_tier >= required_pickaxe_tier;
-                if(can_harvest)
-                {
-                    const BLOCK_WDATA drop_stack = inventoryDropItem(b);
-                    if(getBLOCK(drop_stack) != BLOCK_AIR)
-                    {
-                        const GLFix sx = selection_pos.x * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE / 2);
-                        const GLFix sy = selection_pos.y * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE) + GLFix::minStep();
-                        const GLFix sz = selection_pos.z * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE / 2);
-                        spawnWorldDrop(sx, sy, sz, drop_stack, 1u);
-                    }
+                if (mining_progress % 10 == 0) {
+                    world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
                 }
-                world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
-                mining_progress = 0;
+
+                if (mining_progress >= mining_duration) {
+                    world.spawnDestructionParticles(selection_pos.x, selection_pos.y, selection_pos.z);
+                    const int required_pickaxe_tier = requiredPickaxeTierForDrop(b_type);
+                    const bool can_harvest = required_pickaxe_tier == 0 || pickaxe_tier >= required_pickaxe_tier;
+                    if(can_harvest)
+                    {
+                        const BLOCK_WDATA drop_stack = inventoryDropItem(b);
+                        if(getBLOCK(drop_stack) != BLOCK_AIR)
+                        {
+                            const GLFix sx = selection_pos.x * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE / 2);
+                            const GLFix sy = selection_pos.y * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE) + GLFix::minStep();
+                            const GLFix sz = selection_pos.z * GLFix(BLOCK_SIZE) + GLFix(BLOCK_SIZE / 2);
+                            spawnWorldDrop(sx, sy, sz, drop_stack, 1u);
+                        }
+                    }
+                    world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
+                    mining_progress = 0;
+                    mining_tick_accum = 0;
+                    break;
+                }
             }
         }
         else
         {
             mining_progress = 0;
+            mining_tick_accum = 0;
         }
     }
     else if(keyPressed(KEY_NSPIRE_1)) //Switch inventory slot
@@ -783,11 +799,18 @@ void WorldTask::logic()
         }
     }
 #endif
-    // Update human entity AI/physics every logic tick
-    updateHumanEntities();
-    updateChickenEntities();
-    updateCreeperEntities();
-    updateGroundDrops();
+    // Discrete tick-based entities: advance ~dt worth of old 1-tick steps (carry fractional remainder).
+    sim_tick_accum += dt;
+    unsigned sim_steps = 0;
+    while(sim_tick_accum >= GLFix(1) && sim_steps < 8)
+    {
+        sim_tick_accum -= GLFix(1);
+        updateHumanEntities();
+        updateChickenEntities();
+        updateCreeperEntities();
+        updateGroundDrops();
+        ++sim_steps;
+    }
 }
 
 void WorldTask::render()
@@ -1048,6 +1071,8 @@ void WorldTask::resetWorld()
     in_water = false;
     mining_pos = {-1, -1, -1};
     mining_progress = 0;
+    mining_tick_accum = 0;
+    sim_tick_accum = 0;
     message_timeout = 0;
 }
 

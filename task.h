@@ -11,7 +11,8 @@ public:
     virtual ~Task() {}
 
     virtual void render() = 0;
-    virtual void logic() = 0;
+    /** dt = elapsed real time / nominal tick (1.0 = one old logic step). Keeps motion consistent when FPS varies. */
+    virtual void logic(GLFix dt) = 0;
 
     virtual void makeCurrent();
 

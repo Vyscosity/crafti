@@ -19,7 +19,7 @@ public:
 
     virtual void makeCurrent() override;
     virtual void render() override;
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
 
     void setHasSavedWorld(bool exists) { has_saved_world = exists; }
 

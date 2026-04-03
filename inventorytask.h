@@ -11,7 +11,7 @@ public:
     void openCraftingTable();
     virtual void makeCurrent() override;
     virtual void render() override;
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
     void reset();
 
 private:

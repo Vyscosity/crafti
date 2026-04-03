@@ -93,9 +93,9 @@ int main(int argc, char *argv[])
     #else
     constexpr uint32_t tick_ms = 33; // Fixed simulation tick (~30 Hz)
     #endif
-    constexpr uint32_t max_frame_ms = 250; // Clamp to avoid huge catch-up after pauses
+    // dt = frame_time / tick_ms so one "unit" matches the old single logic() call per tick.
+    constexpr uint32_t max_frame_ms = 500; // Clamp wall-clock gap (pause / debugger) so one frame does not simulate many seconds.
     uint32_t prev_ticks = nowMs();
-    uint32_t accumulator = 0;
 
     while(Task::running)
     {
@@ -104,22 +104,14 @@ int main(int argc, char *argv[])
         prev_ticks = now;
         if(frame_time > max_frame_ms)
             frame_time = max_frame_ms;
-        accumulator += frame_time;
 
-        // Run simulation at a fixed rate independent of rendering frequency.
-        unsigned int steps = 0;
-        while(accumulator >= tick_ms && Task::running)
-        {
-            Task::current_task->logic();
-            accumulator -= tick_ms;
+        GLFix dt = GLFix(static_cast<int>(frame_time)) / GLFix(static_cast<int>(tick_ms));
+        if(dt > GLFix(4))
+            dt = GLFix(4);
+        if(dt < GLFix(0.001f))
+            dt = GLFix(0.001f);
 
-            // Safety guard against spending forever catching up.
-            if(++steps >= 8)
-            {
-                accumulator = 0;
-                break;
-            }
-        }
+        Task::current_task->logic(dt);
 
         //Reset "loading" message
         drawLoadingtext(-1);

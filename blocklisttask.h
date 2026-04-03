@@ -12,7 +12,7 @@ public:
     virtual void makeCurrent() override;
 
     virtual void render() override;
-    virtual void logic() override;
+    virtual void logic(GLFix dt) override;
 
     int current_selection;
 
