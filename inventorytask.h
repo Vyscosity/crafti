@@ -8,12 +8,27 @@
 #include "task.h"
 #include "terrain.h"
 
+class World;
+
+/** Per-position furnace state (MCP TileEntityFurnace: 3 stacks + burn/cook timers). */
+struct FurnaceTileData
+{
+    std::array<std::pair<BLOCK_WDATA, unsigned>, 3> stacks{};
+    int burn_time = 0;
+    int current_item_burn_time = 0;
+    int cook_time = 0;
+    int cook_time_total = 200;
+};
+
 class InventoryTask : public Task
 {
 public:
     void openPlayerInventory();
     void openCraftingTable();
     void openFurnace(int block_x, int block_y, int block_z);
+    void tickFurnaces(World &world);
+    void ensureFurnaceTile(int block_x, int block_y, int block_z);
+    void removeFurnaceTile(int block_x, int block_y, int block_z);
     virtual void makeCurrent() override;
     virtual void render() override;
     virtual void logic(GLFix dt) override;
@@ -41,7 +56,8 @@ private:
     void furnaceSlotBounds(int slot_index, int &x, int &y, int &w, int &h) const;
     /** Player inventory slots 0–35 in vanilla 176×166 furnace GUI space (same as net.minecraft.inventory.ContainerFurnace). */
     void furnacePlayerSlotBounds(int player_slot, int &x, int &y, int &w, int &h) const;
-    void syncFurnaceStorage();
+    /** When input_slot_affected is true, MCP resets cook progress (input stack slot index 0). */
+    void syncFurnaceStorage(bool reset_cook_for_input_slot = false);
     void consumeCraftingIngredients();
     void drawSlotItem(TEXTURE &tex, int slot, int x, int y);
     bool isHoldingItem() const;
@@ -69,7 +85,7 @@ private:
     int furnace_bx = 0, furnace_by = 0, furnace_bz = 0;
     BLOCK_WDATA furnace_slots[3] = {};
     unsigned int furnace_counts[3] = {};
-    std::map<std::tuple<int, int, int>, std::array<std::pair<BLOCK_WDATA, unsigned int>, 3>> furnace_storage;
+    std::map<std::tuple<int, int, int>, FurnaceTileData> furnace_tiles;
 
     // Crafting table
     BLOCK_WDATA crafting_input[CRAFTING_INPUT_COUNT] = {};

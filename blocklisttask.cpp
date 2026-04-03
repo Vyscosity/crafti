@@ -64,6 +64,7 @@ static const BLOCK_WDATA user_items_page_1[] = {
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::STICK)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COAL)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::CHARCOAL)),
+    getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::IRON_INGOT)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::REDSTONE_DUST)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::BREAD)),
     getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::BUCKET)),

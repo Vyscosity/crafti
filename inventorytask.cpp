@@ -11,6 +11,7 @@
 #include "font.h"
 #include "inventory.h"
 #include "itemicons.h"
+#include "world.h"
 #include "worldtask.h"
 
 #include "textures/crafting_table.h"
@@ -461,6 +462,197 @@ RecipeMatch findMatchingRecipe(const BLOCK_WDATA input[], const unsigned int cou
 }
 }
 
+namespace {
+
+bool furnaceStackEmpty(const std::pair<BLOCK_WDATA, unsigned> &s)
+{
+    return getBLOCK(s.first) == BLOCK_AIR || s.second == 0;
+}
+
+BLOCK_WDATA furnaceSmeltingResult(BLOCK_WDATA in)
+{
+    const BLOCK b = getBLOCK(in);
+    if(b == BLOCK_COBBLESTONE)
+        return BLOCK_STONE;
+    if(b == BLOCK_IRON_ORE)
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::IRON_INGOT));
+    if(b == BLOCK_GOLD_ORE)
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::GOLD_INGOT));
+    if(b == BLOCK_DIAMOND_ORE)
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::DIAMOND));
+    if(b == BLOCK_COAL_ORE)
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COAL));
+    if(b == BLOCK_REDSTONE_ORE)
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::REDSTONE_DUST));
+    if(b == BLOCK_SAND)
+        return BLOCK_GLASS;
+    if(b == BLOCK_WOOD)
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::CHARCOAL));
+
+    if(b != BLOCK_ITEM)
+        return BLOCK_AIR;
+
+    switch(static_cast<ItemTexture>(getBLOCKDATA(in)))
+    {
+    case ItemTexture::RAW_PORKCHOP:
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_PORKCHOP));
+    case ItemTexture::RAW_BEEF:
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_BEEF));
+    case ItemTexture::RAW_CHICKEN:
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_CHICKEN));
+    case ItemTexture::RAW_COD:
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_COD));
+    case ItemTexture::RAW_SALMON:
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::COOKED_SALMON));
+    case ItemTexture::POTATO:
+        return getBLOCKWDATA(BLOCK_ITEM, static_cast<uint8_t>(ItemTexture::BAKED_POTATO));
+    default:
+        return BLOCK_AIR;
+    }
+}
+
+constexpr int maxFurnaceStack = 64;
+
+bool furnaceCanSmelt(const FurnaceTileData &d)
+{
+    const auto &in = d.stacks[0];
+    if(furnaceStackEmpty(in))
+        return false;
+
+    const BLOCK_WDATA out_w = furnaceSmeltingResult(in.first);
+    if(getBLOCK(out_w) == BLOCK_AIR)
+        return false;
+
+    const auto &out_slot = d.stacks[2];
+    if(furnaceStackEmpty(out_slot))
+        return true;
+    if(out_slot.first != out_w)
+        return false;
+    return out_slot.second < maxFurnaceStack;
+}
+
+bool isCraftiWoodBlock(BLOCK b)
+{
+    return b == BLOCK_WOOD || b == BLOCK_PLANKS_NORMAL || b == BLOCK_PLANKS_DARK || b == BLOCK_PLANKS_BRIGHT;
+}
+
+/** MCP TileEntityFurnace.getItemBurnTime — subset for Crafti blocks/items. */
+int furnaceFuelBurnTicks(BLOCK_WDATA stack)
+{
+    if(getBLOCK(stack) == BLOCK_AIR)
+        return 0;
+    const BLOCK b = getBLOCK(stack);
+    if(isCraftiWoodBlock(b))
+        return 300;
+    if(b != BLOCK_ITEM)
+        return 0;
+
+    switch(static_cast<ItemTexture>(getBLOCKDATA(stack)))
+    {
+    case ItemTexture::STICK:
+        return 100;
+    case ItemTexture::COAL:
+    case ItemTexture::CHARCOAL:
+        return 1600;
+    case ItemTexture::LAVA_BUCKET:
+        return 20000;
+    case ItemTexture::BLAZE_ROD:
+        return 2400;
+    default:
+        return 0;
+    }
+}
+
+void furnaceSmeltOne(FurnaceTileData &d)
+{
+    if(!furnaceCanSmelt(d))
+        return;
+
+    std::pair<BLOCK_WDATA, unsigned> &in = d.stacks[0];
+    const BLOCK_WDATA result = furnaceSmeltingResult(in.first);
+    std::pair<BLOCK_WDATA, unsigned> &out = d.stacks[2];
+
+    if(furnaceStackEmpty(out))
+    {
+        out.first = result;
+        out.second = 1;
+    }
+    else if(out.first == result)
+        out.second += 1;
+
+    if(in.second <= 1)
+    {
+        in.first = BLOCK_AIR;
+        in.second = 0;
+    }
+    else
+        in.second -= 1;
+}
+
+void setFurnaceBlockLit(World &world, int x, int y, int z, bool lit)
+{
+    BLOCK_WDATA cur = world.getBlock(x, y, z);
+    if(getBLOCK(cur) != BLOCK_FURNACE)
+        return;
+    const uint8_t facing = getBLOCKDATA(cur);
+    const BLOCK_WDATA nw = getBLOCKWDATAPower(BLOCK_FURNACE, facing, lit);
+    if(nw != cur)
+        world.setBlock(x, y, z, nw);
+}
+
+/** One game tick (MCP TileEntityFurnace.update server branch). */
+void tickFurnaceTile(World &world, int x, int y, int z, FurnaceTileData &d)
+{
+    const bool burning_before = d.burn_time > 0;
+    if(d.burn_time > 0)
+        --d.burn_time;
+
+    auto &in = d.stacks[0];
+    auto &fuel = d.stacks[1];
+    const bool has_fuel = !furnaceStackEmpty(fuel);
+    const bool has_input = !furnaceStackEmpty(in);
+
+    if(d.burn_time > 0 || (has_fuel && has_input))
+    {
+        if(d.burn_time <= 0 && furnaceCanSmelt(d))
+        {
+            const int bt = furnaceFuelBurnTicks(fuel.first);
+            d.burn_time = bt;
+            d.current_item_burn_time = bt;
+            if(d.burn_time > 0 && has_fuel)
+            {
+                if(fuel.second <= 1)
+                {
+                    fuel.first = BLOCK_AIR;
+                    fuel.second = 0;
+                }
+                else
+                    --fuel.second;
+            }
+        }
+
+        if(d.burn_time > 0 && furnaceCanSmelt(d))
+        {
+            ++d.cook_time;
+            if(d.cook_time >= d.cook_time_total)
+            {
+                d.cook_time = 0;
+                d.cook_time_total = 200;
+                furnaceSmeltOne(d);
+            }
+        }
+        else
+            d.cook_time = 0;
+    }
+    else if(d.burn_time <= 0 && d.cook_time > 0)
+        d.cook_time = std::max(0, std::min(d.cook_time_total, d.cook_time - 2));
+
+    if(burning_before != (d.burn_time > 0))
+        setFurnaceBlockLit(world, x, y, z, d.burn_time > 0);
+}
+
+} // namespace
+
 void InventoryTask::openPlayerInventory()
 {
     crafting_table_mode = false;
@@ -483,34 +675,68 @@ void InventoryTask::openFurnace(int block_x, int block_y, int block_z)
     furnace_by = block_y;
     furnace_bz = block_z;
     const auto key = std::make_tuple(block_x, block_y, block_z);
-    const auto it = furnace_storage.find(key);
-    if(it != furnace_storage.end())
+    FurnaceTileData &fd = furnace_tiles[key];
+    for(int i = 0; i < 3; ++i)
     {
-        for(int i = 0; i < 3; ++i)
-        {
-            furnace_slots[i] = it->second[static_cast<size_t>(i)].first;
-            furnace_counts[i] = it->second[static_cast<size_t>(i)].second;
-        }
-    }
-    else
-    {
-        for(int i = 0; i < 3; ++i)
-        {
-            furnace_slots[i] = BLOCK_AIR;
-            furnace_counts[i] = 0;
-        }
+        furnace_slots[i] = fd.stacks[static_cast<size_t>(i)].first;
+        furnace_counts[i] = fd.stacks[static_cast<size_t>(i)].second;
     }
     activate();
 }
 
-void InventoryTask::syncFurnaceStorage()
+void InventoryTask::syncFurnaceStorage(bool reset_cook_for_input_slot)
 {
     if(!furnace_mode)
         return;
     const auto key = std::make_tuple(furnace_bx, furnace_by, furnace_bz);
-    auto &entry = furnace_storage[key];
+    FurnaceTileData &fd = furnace_tiles[key];
     for(int i = 0; i < 3; ++i)
-        entry[static_cast<size_t>(i)] = {furnace_slots[i], furnace_counts[i]};
+        fd.stacks[static_cast<size_t>(i)] = {furnace_slots[i], furnace_counts[i]};
+    if(reset_cook_for_input_slot)
+    {
+        fd.cook_time = 0;
+        fd.cook_time_total = 200;
+    }
+}
+
+void InventoryTask::ensureFurnaceTile(int block_x, int block_y, int block_z)
+{
+    const auto key = std::make_tuple(block_x, block_y, block_z);
+    (void)furnace_tiles[key];
+}
+
+void InventoryTask::removeFurnaceTile(int block_x, int block_y, int block_z)
+{
+    furnace_tiles.erase(std::make_tuple(block_x, block_y, block_z));
+}
+
+void InventoryTask::tickFurnaces(World &world)
+{
+    for(auto it = furnace_tiles.begin(); it != furnace_tiles.end();)
+    {
+        const int x = std::get<0>(it->first);
+        const int y = std::get<1>(it->first);
+        const int z = std::get<2>(it->first);
+        BLOCK_WDATA cur = world.getBlock(x, y, z);
+        if(getBLOCK(cur) != BLOCK_FURNACE)
+        {
+            it = furnace_tiles.erase(it);
+            continue;
+        }
+
+        tickFurnaceTile(world, x, y, z, it->second);
+
+        if(furnace_mode && x == furnace_bx && y == furnace_by && z == furnace_bz)
+        {
+            FurnaceTileData &fd = it->second;
+            for(int i = 0; i < 3; ++i)
+            {
+                furnace_slots[i] = fd.stacks[static_cast<size_t>(i)].first;
+                furnace_counts[i] = fd.stacks[static_cast<size_t>(i)].second;
+            }
+        }
+        ++it;
+    }
 }
 
 void InventoryTask::makeCurrent()
@@ -541,7 +767,7 @@ void InventoryTask::activate()
     if(furnace_mode)
     {
         int sx, sy, sw, sh;
-        furnacePlayerSlotBounds(Inventory::hotbar_slot_count, sx, sy, sw, sh);
+        furnacePlayerSlotBounds(0, sx, sy, sw, sh);
         cursor_x = sx + sw / 2;
         cursor_y = sy + sh / 2;
     }
@@ -730,7 +956,7 @@ int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
         if(furnace_slot != INVALID_SLOT)
             return furnace_slot;
 
-        for(int s = Inventory::hotbar_slot_count; s < Inventory::slot_count; ++s)
+        for(int s = 0; s < Inventory::slot_count; ++s)
         {
             int sx, sy, sw, sh;
             furnacePlayerSlotBounds(s, sx, sy, sw, sh);
@@ -908,7 +1134,7 @@ void InventoryTask::handleLeftClick(int slot)
                     held_count = furnace_counts[2];
                     furnace_slots[2] = BLOCK_AIR;
                     furnace_counts[2] = 0;
-                    syncFurnaceStorage();
+                    syncFurnaceStorage(false);
                     return;
                 }
                 else if(held_block == furnace_slots[2])
@@ -916,7 +1142,7 @@ void InventoryTask::handleLeftClick(int slot)
                     held_count += furnace_counts[2];
                     furnace_slots[2] = BLOCK_AIR;
                     furnace_counts[2] = 0;
-                    syncFurnaceStorage();
+                    syncFurnaceStorage(false);
                     return;
                 }
             }
@@ -934,7 +1160,7 @@ void InventoryTask::handleLeftClick(int slot)
                 held_count = slot_count;
                 furnace_slots[fi] = BLOCK_AIR;
                 furnace_counts[fi] = 0;
-                syncFurnaceStorage();
+                syncFurnaceStorage(fi == 0);
             }
             return;
         }
@@ -945,7 +1171,7 @@ void InventoryTask::handleLeftClick(int slot)
             furnace_counts[fi] = held_count;
             held_block = BLOCK_AIR;
             held_count = 0;
-            syncFurnaceStorage();
+            syncFurnaceStorage(fi == 0);
         }
         else if(slot_block == held_block)
         {
@@ -953,7 +1179,7 @@ void InventoryTask::handleLeftClick(int slot)
             furnace_counts[fi] = slot_count + held_count;
             held_block = BLOCK_AIR;
             held_count = 0;
-            syncFurnaceStorage();
+            syncFurnaceStorage(fi == 0);
         }
         else
         {
@@ -961,7 +1187,7 @@ void InventoryTask::handleLeftClick(int slot)
             furnace_counts[fi] = held_count;
             held_block = slot_block;
             held_count = slot_count;
-            syncFurnaceStorage();
+            syncFurnaceStorage(fi == 0);
         }
         return;
     }
@@ -1093,7 +1319,7 @@ void InventoryTask::handleRightClick(int slot)
                     held_count = furnace_counts[2];
                     furnace_slots[2] = BLOCK_AIR;
                     furnace_counts[2] = 0;
-                    syncFurnaceStorage();
+                    syncFurnaceStorage(false);
                     return;
                 }
                 else if(held_block == furnace_slots[2])
@@ -1101,7 +1327,7 @@ void InventoryTask::handleRightClick(int slot)
                     held_count += furnace_counts[2];
                     furnace_slots[2] = BLOCK_AIR;
                     furnace_counts[2] = 0;
-                    syncFurnaceStorage();
+                    syncFurnaceStorage(false);
                     return;
                 }
             }
@@ -1123,7 +1349,7 @@ void InventoryTask::handleRightClick(int slot)
             held_count = picked;
             furnace_slots[fi] = remaining == 0 ? BLOCK_AIR : slot_block;
             furnace_counts[fi] = remaining;
-            syncFurnaceStorage();
+            syncFurnaceStorage(fi == 0);
             return;
         }
 
@@ -1143,7 +1369,7 @@ void InventoryTask::handleRightClick(int slot)
         if(held_count == 0)
             held_block = BLOCK_AIR;
 
-        syncFurnaceStorage();
+        syncFurnaceStorage(fi == 0);
         return;
     }
 
@@ -1285,7 +1511,7 @@ void InventoryTask::handleHalfPlace(int slot)
         if(held_count == 0)
             held_block = BLOCK_AIR;
 
-        syncFurnaceStorage();
+        syncFurnaceStorage(fi == 0);
         return;
     }
 
@@ -1389,6 +1615,44 @@ void InventoryTask::render()
                     static_cast<uint16_t>(src_w), static_cast<uint16_t>(src_h),
                     static_cast<uint16_t>(panel_x), static_cast<uint16_t>(panel_y),
                     static_cast<uint16_t>(panel_w), static_cast<uint16_t>(panel_h));
+
+        const auto fkey = std::make_tuple(furnace_bx, furnace_by, furnace_bz);
+        FurnaceTileData fd_gui{};
+        const auto fit_gui = furnace_tiles.find(fkey);
+        if(fit_gui != furnace_tiles.end())
+            fd_gui = fit_gui->second;
+
+        auto vx = [&](int x) { return panel_x + (x * panel_w) / furnace_gui_src_w; };
+        auto vy = [&](int y) { return panel_y + (y * panel_h) / furnace_gui_src_h; };
+        auto vw = [&](int w) { return std::max(1, (w * panel_w) / furnace_gui_src_w); };
+        auto vh = [&](int h) { return std::max(1, (h * panel_h) / furnace_gui_src_h); };
+
+        int burn_scale = fd_gui.current_item_burn_time;
+        if(burn_scale <= 0)
+            burn_scale = 200;
+        const int burn_h_pc = std::min(13, fd_gui.burn_time * 13 / burn_scale);
+        if(burn_h_pc > 0 && fd_gui.burn_time > 0)
+        {
+            const int sh = burn_h_pc + 1;
+            drawTexture(furnace_gui, *screen,
+                        static_cast<uint16_t>(176), static_cast<uint16_t>(12 - burn_h_pc),
+                        static_cast<uint16_t>(14), static_cast<uint16_t>(sh),
+                        static_cast<uint16_t>(vx(56)), static_cast<uint16_t>(vy(36 + 12 - burn_h_pc)),
+                        static_cast<uint16_t>(vw(14)), static_cast<uint16_t>(vh(sh)));
+        }
+
+        int cook_px = 0;
+        if(fd_gui.cook_time_total > 0 && fd_gui.cook_time > 0)
+            cook_px = fd_gui.cook_time * 24 / fd_gui.cook_time_total;
+        if(cook_px > 0)
+        {
+            const int sw = cook_px + 1;
+            drawTexture(furnace_gui, *screen,
+                        static_cast<uint16_t>(176), static_cast<uint16_t>(14),
+                        static_cast<uint16_t>(sw), static_cast<uint16_t>(16),
+                        static_cast<uint16_t>(vx(79)), static_cast<uint16_t>(vy(34)),
+                        static_cast<uint16_t>(vw(sw)), static_cast<uint16_t>(vh(16)));
+        }
     }
     else if(crafting_table_mode)
     {
@@ -1407,7 +1671,7 @@ void InventoryTask::render()
     const int pitch = inv_draw_pitch;
     if(furnace_mode)
     {
-        for(int s = Inventory::hotbar_slot_count; s < Inventory::slot_count; ++s)
+        for(int s = 0; s < Inventory::slot_count; ++s)
         {
             int sx, sy, bw, bh;
             furnacePlayerSlotBounds(s, sx, sy, bw, bh);
@@ -1598,7 +1862,7 @@ void InventoryTask::render()
 #endif
 }
 
-void InventoryTask::logic(GLFix /*dt*/)
+void InventoryTask::logic(GLFix dt)
 {
 #ifndef _TINSPIRE
     SDL_PumpEvents();
@@ -1741,4 +2005,14 @@ void InventoryTask::logic(GLFix /*dt*/)
     nspire_single_was_down = single_down;
     nspire_half_was_down = half_down;
 #endif
+
+    static GLFix furnace_acc = 0;
+    furnace_acc += dt;
+    unsigned fn = 0;
+    while(furnace_acc >= GLFix(1) && fn < 8)
+    {
+        furnace_acc -= GLFix(1);
+        tickFurnaces(world);
+        ++fn;
+    }
 }

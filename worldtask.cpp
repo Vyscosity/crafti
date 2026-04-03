@@ -640,7 +640,11 @@ void WorldTask::logic(GLFix dt)
                 }
 
                 if(placed)
+                {
+                    if(getBLOCK(block_to_place) == BLOCK_FURNACE)
+                        inventory_task.ensureFurnaceTile(pos.x, pos.y, pos.z);
                     current_inventory.removeFromCurrentSlot();
+                }
             }
         }
     }
@@ -708,6 +712,8 @@ void WorldTask::logic(GLFix dt)
                             spawnWorldDrop(sx, sy, sz, drop_stack, 1u);
                         }
                     }
+                    if(b_type == BLOCK_FURNACE)
+                        inventory_task.removeFurnaceTile(selection_pos.x, selection_pos.y, selection_pos.z);
                     world.changeBlock(selection_pos.x, selection_pos.y, selection_pos.z, BLOCK_AIR);
                     mining_progress = 0;
                     mining_tick_accum = 0;
@@ -805,6 +811,7 @@ void WorldTask::logic(GLFix dt)
     while(sim_tick_accum >= GLFix(1) && sim_steps < 8)
     {
         sim_tick_accum -= GLFix(1);
+        inventory_task.tickFurnaces(world);
         updateHumanEntities();
         updateChickenEntities();
         updateCreeperEntities();

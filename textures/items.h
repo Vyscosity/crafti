@@ -31,10 +31,11 @@ enum class ItemTexture : uint8_t {
     IRON_CHESTPLATE = 18,
     DIAMOND_CHESTPLATE = 19,
     GOLDEN_CHESTPLATE = 20,
-    PUFFERFISH = 21,
+    // Item icons 21–24: raw fish order matches MCP ItemFishFood.FishType metadata (cod, salmon, clownfish→tropical, pufferfish).
+    COD = 21,
     SALMON = 22,
     TROPICAL_FISH = 23,
-    COD = 24,
+    PUFFERFISH = 24,
     SEAGRASS = 25,
     PRISMARINE_CRYSTALS = 26,
     AMETHYST_SHARD = 27,
@@ -171,6 +172,7 @@ enum class ItemTexture : uint8_t {
 
     // Row 9
     ARMOR_STAND = 144,
+    IRON_INGOT = 145,
     IRON_HORSE_ARMOR = 146,
     DIAMOND_HORSE_ARMOR = 147,
     GOLDEN_HORSE_ARMOR = 148,
@@ -203,6 +205,9 @@ enum class ItemTexture : uint8_t {
     BLUE_DYE_ALT = 173,
     BROWN_DYE_ALT = 174,
     BONE_MEAL = 175,
+
+    // Row 11+ (tiles y≥176 in 256px items.png) — extend atlas indices as needed.
+    COOKED_SALMON = 176,
 };
 
 #endif // ITEMS_H

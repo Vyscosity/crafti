@@ -169,6 +169,42 @@ const char *getItemName(BLOCK_WDATA block)
         return "Diamond Boots";
     case ItemTexture::RAW_CHICKEN:
         return "Raw Chicken";
+    case ItemTexture::COOKED_CHICKEN:
+        return "Cooked Chicken";
+    case ItemTexture::IRON_INGOT:
+        return "Iron Ingot";
+    case ItemTexture::GOLD_INGOT:
+        return "Gold Ingot";
+    case ItemTexture::DIAMOND:
+        return "Diamond";
+    case ItemTexture::RAW_BEEF:
+        return "Raw Beef";
+    case ItemTexture::COOKED_BEEF:
+        return "Cooked Beef";
+    case ItemTexture::RAW_PORKCHOP:
+        return "Raw Porkchop";
+    case ItemTexture::COOKED_PORKCHOP:
+        return "Cooked Porkchop";
+    case ItemTexture::RAW_COD:
+        return "Raw Cod";
+    case ItemTexture::COOKED_COD:
+        return "Cooked Cod";
+    case ItemTexture::RAW_SALMON:
+        return "Raw Salmon";
+    case ItemTexture::COOKED_SALMON:
+        return "Cooked Salmon";
+    case ItemTexture::POTATO:
+        return "Potato";
+    case ItemTexture::BAKED_POTATO:
+        return "Baked Potato";
+    case ItemTexture::COD:
+        return "Cod";
+    case ItemTexture::SALMON:
+        return "Salmon";
+    case ItemTexture::TROPICAL_FISH:
+        return "Tropical Fish";
+    case ItemTexture::PUFFERFISH:
+        return "Pufferfish";
     case ItemTexture::ROTTEN_FLESH:
         return "Rotten Flesh";
     case ItemTexture::GUNPOWDER:

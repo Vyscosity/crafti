@@ -648,5 +648,9 @@ void OrientedBlockRenderer::geometryNormalBlock(const BLOCK_WDATA block, const i
         break;
     }
 
-    BlockRenderer::renderNormalBlockSide(local_x, local_y, local_z, side, block_textures[type][map[side]].current, c);
+    TextureAtlasEntry face_tex = block_textures[type][map[side]].current;
+    if(type == BLOCK_FURNACE && side == BLOCK_TOP && !getPOWERSTATE(block))
+        face_tex = block_textures[type][map[BLOCK_BACK]].current;
+
+    BlockRenderer::renderNormalBlockSide(local_x, local_y, local_z, side, face_tex, c);
 }
