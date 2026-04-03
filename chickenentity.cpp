@@ -241,8 +241,14 @@ void ChickenEntity::render() const
     const GLFix neg_cos_t = -cos_t;
     GLFix rl = cos_t * GLFix(55) * swing_intensity;
     GLFix ll = neg_cos_t * GLFix(55) * swing_intensity;
+    // nglRotate* → fast_sin/fast_cos use non-negative table indices; same as HumanEntity / Creeper legs.
+    rl.normaliseAngle();
+    ll.normaliseAngle();
 
     GLFix wing_z = fast_sin(GLFix((int)((ticks_alive * 11) % 360))) * GLFix(32);
+    GLFix wing_z_neg = -wing_z;
+    wing_z.normaliseAngle();
+    wing_z_neg.normaliseAngle();
 
     GLFix render_yaw = yaw + GLFix(180);
     render_yaw.normaliseAngle();
@@ -317,7 +323,7 @@ void ChickenEntity::render() const
 
     glPushMatrix();
     glTranslatef(GLFix(4) * S, pivotY(GLFix(13)), 0);
-    nglRotateZ(-wing_z);
+    nglRotateZ(wing_z_neg);
     drawChickBox(GLFix(-1) * S, GLFix(-4) * S, GLFix(-3) * S,
                  GLFix(1) * S, GLFix(4) * S, GLFix(6) * S,
                  24, 13, 1, 4, 6, true);

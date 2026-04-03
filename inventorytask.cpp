@@ -14,6 +14,7 @@
 #include "worldtask.h"
 
 #include "textures/crafting_table.h"
+#include "textures/furnace.h"
 #include "textures/items.h"
 #include "textures/inventory2.h"
 
@@ -128,6 +129,41 @@ void craftingTablePanelRect(const TEXTURE &table_tex, int &panel_x, int &panel_y
 
     panel_x = (SCREEN_WIDTH - panel_w) / 2;
     panel_y = table_panel_offset_y;
+}
+
+// Vanilla GuiContainer uses 176×166; GuiFurnace draws only UV (0,0)–(176,166). Columns x≥176 in furnace.png are
+// flame / smelting progress sprites (drawTexturedModalRect at 176,12 and 176,14), not part of the static background.
+constexpr int furnace_gui_src_w = 176;
+constexpr int furnace_gui_src_h = 166;
+
+/** Fit the 176×166 furnace panel to the screen (correct aspect; matches ContainerFurnace slot coordinates). */
+void furnaceGuiPanelRect(int &panel_x, int &panel_y, int &panel_w, int &panel_h)
+{
+    const int margin = 8;
+    const int max_w = std::max(1, SCREEN_WIDTH - margin);
+    const int max_h = std::max(1, SCREEN_HEIGHT - margin);
+
+    int w = max_w;
+    int h = (w * furnace_gui_src_h) / furnace_gui_src_w;
+    if(h > max_h)
+    {
+        h = max_h;
+        w = (h * furnace_gui_src_w) / furnace_gui_src_h;
+        if(w < 1)
+            w = 1;
+    }
+    // ~20% smaller than max-fit (less dominant on screen)
+    constexpr int furnace_scale_pct = 80;
+    w = (w * furnace_scale_pct) / 100;
+    h = (h * furnace_scale_pct) / 100;
+    if(w < 1)
+        w = 1;
+    if(h < 1)
+        h = 1;
+    panel_w = w;
+    panel_h = h;
+    panel_x = (SCREEN_WIDTH - panel_w) / 2;
+    panel_y = (SCREEN_HEIGHT - panel_h) / 2;
 }
 
 enum class RecipeMat : uint8_t {
@@ -428,13 +464,53 @@ RecipeMatch findMatchingRecipe(const BLOCK_WDATA input[], const unsigned int cou
 void InventoryTask::openPlayerInventory()
 {
     crafting_table_mode = false;
+    furnace_mode = false;
     activate();
 }
 
 void InventoryTask::openCraftingTable()
 {
     crafting_table_mode = true;
+    furnace_mode = false;
     activate();
+}
+
+void InventoryTask::openFurnace(int block_x, int block_y, int block_z)
+{
+    crafting_table_mode = false;
+    furnace_mode = true;
+    furnace_bx = block_x;
+    furnace_by = block_y;
+    furnace_bz = block_z;
+    const auto key = std::make_tuple(block_x, block_y, block_z);
+    const auto it = furnace_storage.find(key);
+    if(it != furnace_storage.end())
+    {
+        for(int i = 0; i < 3; ++i)
+        {
+            furnace_slots[i] = it->second[static_cast<size_t>(i)].first;
+            furnace_counts[i] = it->second[static_cast<size_t>(i)].second;
+        }
+    }
+    else
+    {
+        for(int i = 0; i < 3; ++i)
+        {
+            furnace_slots[i] = BLOCK_AIR;
+            furnace_counts[i] = 0;
+        }
+    }
+    activate();
+}
+
+void InventoryTask::syncFurnaceStorage()
+{
+    if(!furnace_mode)
+        return;
+    const auto key = std::make_tuple(furnace_bx, furnace_by, furnace_bz);
+    auto &entry = furnace_storage[key];
+    for(int i = 0; i < 3; ++i)
+        entry[static_cast<size_t>(i)] = {furnace_slots[i], furnace_counts[i]};
 }
 
 void InventoryTask::makeCurrent()
@@ -462,10 +538,20 @@ void InventoryTask::activate()
         saveBackground();
 
 #ifdef _TINSPIRE
-    const int inv_x = inventoryOriginX();
-    const int inv_y = inventoryOriginY();
-    cursor_x = inv_x + hotbar_src_x * inv_draw_scale + inv_draw_slot_size / 2;
-    cursor_y = inv_y + hotbar_src_y * inv_draw_scale + inv_draw_slot_size / 2;
+    if(furnace_mode)
+    {
+        int sx, sy, sw, sh;
+        furnacePlayerSlotBounds(Inventory::hotbar_slot_count, sx, sy, sw, sh);
+        cursor_x = sx + sw / 2;
+        cursor_y = sy + sh / 2;
+    }
+    else
+    {
+        const int inv_x = inventoryOriginX();
+        const int inv_y = inventoryOriginY();
+        cursor_x = inv_x + hotbar_src_x * inv_draw_scale + inv_draw_slot_size / 2;
+        cursor_y = inv_y + hotbar_src_y * inv_draw_scale + inv_draw_slot_size / 2;
+    }
     nspire_select_was_down = false;
     nspire_single_was_down = false;
     nspire_half_was_down = false;
@@ -568,6 +654,66 @@ void InventoryTask::craftingOutputBounds(int &x, int &y, int &w, int &h) const
     h = std::max(1, y1 - y);
 }
 
+void InventoryTask::furnaceSlotBounds(int slot_index, int &x, int &y, int &w, int &h) const
+{
+    constexpr int slot_px = 18;
+    int sx = 56;
+    int sy = 17;
+    if(slot_index == 1)
+        sy = 53;
+    else if(slot_index == 2)
+    {
+        sx = 116;
+        sy = 35;
+    }
+
+    int panel_x = 0, panel_y = 0, panel_w = 0, panel_h = 0;
+    furnaceGuiPanelRect(panel_x, panel_y, panel_w, panel_h);
+    x = panel_x + (sx * panel_w) / furnace_gui_src_w;
+    y = panel_y + (sy * panel_h) / furnace_gui_src_h;
+    w = std::max(1, (slot_px * panel_w) / furnace_gui_src_w);
+    h = std::max(1, (slot_px * panel_h) / furnace_gui_src_h);
+}
+
+int InventoryTask::furnaceSlotFromMouse(int mouse_x, int mouse_y) const
+{
+    for(int i = 0; i < 3; ++i)
+    {
+        int sx, sy, sw, sh;
+        furnaceSlotBounds(i, sx, sy, sw, sh);
+        if(mouse_x >= sx && mouse_x < sx + sw && mouse_y >= sy && mouse_y < sy + sh)
+            return FURNACE_INPUT_SLOT + i;
+    }
+    return INVALID_SLOT;
+}
+
+void InventoryTask::furnacePlayerSlotBounds(int player_slot, int &x, int &y, int &w, int &h) const
+{
+    constexpr int slot_px = 18;
+    int sx = 0;
+    int sy = 0;
+    if(player_slot < Inventory::hotbar_slot_count)
+    {
+        sx = 8 + player_slot * 18;
+        sy = 142;
+    }
+    else
+    {
+        const int idx = player_slot - Inventory::hotbar_slot_count;
+        const int col = idx % 9;
+        const int row = idx / 9;
+        sx = 8 + col * 18;
+        sy = 84 + row * 18;
+    }
+
+    int panel_x = 0, panel_y = 0, panel_w = 0, panel_h = 0;
+    furnaceGuiPanelRect(panel_x, panel_y, panel_w, panel_h);
+    x = panel_x + (sx * panel_w) / furnace_gui_src_w;
+    y = panel_y + (sy * panel_h) / furnace_gui_src_h;
+    w = std::max(1, (slot_px * panel_w) / furnace_gui_src_w);
+    h = std::max(1, (slot_px * panel_h) / furnace_gui_src_h);
+}
+
 int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
 {
     const int inv_x = inventoryOriginX();
@@ -578,12 +724,26 @@ int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
     const int slot_size = inv_draw_slot_size;
     const int pitch = inv_draw_pitch;
 
-    // Check crafting area
+    if(furnace_mode)
+    {
+        const int furnace_slot = furnaceSlotFromMouse(mouse_x, mouse_y);
+        if(furnace_slot != INVALID_SLOT)
+            return furnace_slot;
+
+        for(int s = Inventory::hotbar_slot_count; s < Inventory::slot_count; ++s)
+        {
+            int sx, sy, sw, sh;
+            furnacePlayerSlotBounds(s, sx, sy, sw, sh);
+            if(mouse_x >= sx && mouse_x < sx + sw && mouse_y >= sy && mouse_y < sy + sh)
+                return s;
+        }
+        return INVALID_SLOT;
+    }
+
     int crafting_slot = craftingSlotFromMouse(mouse_x, mouse_y);
     if(crafting_slot != INVALID_SLOT)
         return CRAFTING_SLOT_OFFSET + crafting_slot;
 
-    // Check output slot
     int output_draw_x, output_draw_y, output_draw_w, output_draw_h;
     craftingOutputBounds(output_draw_x, output_draw_y, output_draw_w, output_draw_h);
     if(mouse_x >= output_draw_x && mouse_x < output_draw_x + output_draw_w &&
@@ -607,11 +767,14 @@ int InventoryTask::slotFromMouse(int mouse_x, int mouse_y) const
                 return Inventory::hotbar_slot_count + row * storage_cols + col;
         }
 
-    return -1;
+    return INVALID_SLOT;
 }
 
 int InventoryTask::craftingSlotFromMouse(int mouse_x, int mouse_y) const
 {
+    if(furnace_mode)
+        return INVALID_SLOT;
+
     int craft_draw_x, craft_draw_y, craft_width, craft_height;
     craftingGridBounds(craft_draw_x, craft_draw_y, craft_width, craft_height);
 
@@ -732,6 +895,77 @@ void InventoryTask::consumeCraftingIngredients()
 
 void InventoryTask::handleLeftClick(int slot)
 {
+    if(furnace_mode && slot >= FURNACE_INPUT_SLOT && slot <= FURNACE_OUTPUT_SLOT)
+    {
+        const int fi = slot - FURNACE_INPUT_SLOT;
+        if(slot == FURNACE_OUTPUT_SLOT)
+        {
+            if(furnace_counts[2] > 0 && getBLOCK(furnace_slots[2]) != BLOCK_AIR)
+            {
+                if(!isHoldingItem())
+                {
+                    held_block = furnace_slots[2];
+                    held_count = furnace_counts[2];
+                    furnace_slots[2] = BLOCK_AIR;
+                    furnace_counts[2] = 0;
+                    syncFurnaceStorage();
+                    return;
+                }
+                else if(held_block == furnace_slots[2])
+                {
+                    held_count += furnace_counts[2];
+                    furnace_slots[2] = BLOCK_AIR;
+                    furnace_counts[2] = 0;
+                    syncFurnaceStorage();
+                    return;
+                }
+            }
+            return;
+        }
+
+        const BLOCK_WDATA slot_block = furnace_slots[fi];
+        const unsigned int slot_count = furnace_counts[fi];
+
+        if(!isHoldingItem())
+        {
+            if(getBLOCK(slot_block) != BLOCK_AIR && slot_count > 0)
+            {
+                held_block = slot_block;
+                held_count = slot_count;
+                furnace_slots[fi] = BLOCK_AIR;
+                furnace_counts[fi] = 0;
+                syncFurnaceStorage();
+            }
+            return;
+        }
+
+        if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+        {
+            furnace_slots[fi] = held_block;
+            furnace_counts[fi] = held_count;
+            held_block = BLOCK_AIR;
+            held_count = 0;
+            syncFurnaceStorage();
+        }
+        else if(slot_block == held_block)
+        {
+            furnace_slots[fi] = slot_block;
+            furnace_counts[fi] = slot_count + held_count;
+            held_block = BLOCK_AIR;
+            held_count = 0;
+            syncFurnaceStorage();
+        }
+        else
+        {
+            furnace_slots[fi] = held_block;
+            furnace_counts[fi] = held_count;
+            held_block = slot_block;
+            held_count = slot_count;
+            syncFurnaceStorage();
+        }
+        return;
+    }
+
     // Handle crafting output slot (read-only, can only pick up)
     if(slot == CRAFTING_OUTPUT_SLOT)
     {
@@ -847,6 +1081,72 @@ void InventoryTask::handleLeftClick(int slot)
 
 void InventoryTask::handleRightClick(int slot)
 {
+    if(furnace_mode && slot >= FURNACE_INPUT_SLOT && slot <= FURNACE_OUTPUT_SLOT)
+    {
+        if(slot == FURNACE_OUTPUT_SLOT)
+        {
+            if(furnace_counts[2] > 0 && getBLOCK(furnace_slots[2]) != BLOCK_AIR)
+            {
+                if(!isHoldingItem())
+                {
+                    held_block = furnace_slots[2];
+                    held_count = furnace_counts[2];
+                    furnace_slots[2] = BLOCK_AIR;
+                    furnace_counts[2] = 0;
+                    syncFurnaceStorage();
+                    return;
+                }
+                else if(held_block == furnace_slots[2])
+                {
+                    held_count += furnace_counts[2];
+                    furnace_slots[2] = BLOCK_AIR;
+                    furnace_counts[2] = 0;
+                    syncFurnaceStorage();
+                    return;
+                }
+            }
+            return;
+        }
+
+        const int fi = slot - FURNACE_INPUT_SLOT;
+        const BLOCK_WDATA slot_block = furnace_slots[fi];
+        const unsigned int slot_count = furnace_counts[fi];
+
+        if(!isHoldingItem())
+        {
+            if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+                return;
+
+            const unsigned int picked = (slot_count + 1) / 2;
+            const unsigned int remaining = slot_count - picked;
+            held_block = slot_block;
+            held_count = picked;
+            furnace_slots[fi] = remaining == 0 ? BLOCK_AIR : slot_block;
+            furnace_counts[fi] = remaining;
+            syncFurnaceStorage();
+            return;
+        }
+
+        if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+        {
+            furnace_slots[fi] = held_block;
+            furnace_counts[fi] = 1;
+            --held_count;
+        }
+        else if(slot_block == held_block)
+        {
+            furnace_slots[fi] = slot_block;
+            furnace_counts[fi] = slot_count + 1;
+            --held_count;
+        }
+
+        if(held_count == 0)
+            held_block = BLOCK_AIR;
+
+        syncFurnaceStorage();
+        return;
+    }
+
     // Handle crafting output slot (read-only, can only pick up one)
     if(slot == CRAFTING_OUTPUT_SLOT)
     {
@@ -963,6 +1263,32 @@ void InventoryTask::handleHalfPlace(int slot)
     if(place_count == 0)
         place_count = 1;
 
+    if(furnace_mode && slot >= FURNACE_INPUT_SLOT && slot <= FURNACE_FUEL_SLOT)
+    {
+        const int fi = slot - FURNACE_INPUT_SLOT;
+        const BLOCK_WDATA slot_block = furnace_slots[fi];
+        const unsigned int slot_count = furnace_counts[fi];
+
+        if(getBLOCK(slot_block) == BLOCK_AIR || slot_count == 0)
+        {
+            furnace_slots[fi] = held_block;
+            furnace_counts[fi] = place_count;
+        }
+        else if(slot_block == held_block)
+        {
+            furnace_counts[fi] = slot_count + place_count;
+        }
+        else
+            return;
+
+        held_count -= place_count;
+        if(held_count == 0)
+            held_block = BLOCK_AIR;
+
+        syncFurnaceStorage();
+        return;
+    }
+
     if(slot >= CRAFTING_SLOT_OFFSET && slot < CRAFTING_OUTPUT_SLOT)
     {
         const int craft_slot = slot - CRAFTING_SLOT_OFFSET;
@@ -1015,40 +1341,56 @@ void InventoryTask::render()
 {
     drawBackground();
 
-    const int inv_w = static_cast<int>(inventory2.width) * inv_draw_scale;
-    const int inv_h = static_cast<int>(inventory2.height) * inv_draw_scale;
     const int inv_x = inventoryOriginX();
     const int inv_y = inventoryOriginY();
 
-    const int clip_x0 = std::max(0, inv_x);
-    const int clip_y0 = std::max(0, inv_y);
-    const int clip_x1 = std::min(SCREEN_WIDTH, inv_x + inv_w);
-    const int clip_y1 = std::min(SCREEN_HEIGHT, inv_y + inv_h);
-
-    if(clip_x1 > clip_x0 && clip_y1 > clip_y0)
+    if(!furnace_mode)
     {
-        const int rel_left = clip_x0 - inv_x;
-        const int rel_top = clip_y0 - inv_y;
-        const int rel_right = clip_x1 - inv_x;
-        const int rel_bottom = clip_y1 - inv_y;
+        const int inv_w = static_cast<int>(inventory2.width) * inv_draw_scale;
+        const int inv_h = static_cast<int>(inventory2.height) * inv_draw_scale;
 
-        const int src_x = rel_left / inv_draw_scale;
-        const int src_y = rel_top / inv_draw_scale;
-        const int src_right = (rel_right + inv_draw_scale - 1) / inv_draw_scale;
-        const int src_bottom = (rel_bottom + inv_draw_scale - 1) / inv_draw_scale;
-        const int src_w = src_right - src_x;
-        const int src_h = src_bottom - src_y;
+        const int clip_x0 = std::max(0, inv_x);
+        const int clip_y0 = std::max(0, inv_y);
+        const int clip_x1 = std::min(SCREEN_WIDTH, inv_x + inv_w);
+        const int clip_y1 = std::min(SCREEN_HEIGHT, inv_y + inv_h);
 
-        if(src_w > 0 && src_h > 0)
-            drawTexture(inventory2, *screen,
-                        src_x, src_y, src_w, src_h,
-                        inv_x + src_x * inv_draw_scale,
-                        inv_y + src_y * inv_draw_scale,
-                        src_w * inv_draw_scale,
-                        src_h * inv_draw_scale);
+        if(clip_x1 > clip_x0 && clip_y1 > clip_y0)
+        {
+            const int rel_left = clip_x0 - inv_x;
+            const int rel_top = clip_y0 - inv_y;
+            const int rel_right = clip_x1 - inv_x;
+            const int rel_bottom = clip_y1 - inv_y;
+
+            const int src_x = rel_left / inv_draw_scale;
+            const int src_y = rel_top / inv_draw_scale;
+            const int src_right = (rel_right + inv_draw_scale - 1) / inv_draw_scale;
+            const int src_bottom = (rel_bottom + inv_draw_scale - 1) / inv_draw_scale;
+            const int src_w = src_right - src_x;
+            const int src_h = src_bottom - src_y;
+
+            if(src_w > 0 && src_h > 0)
+                drawTexture(inventory2, *screen,
+                            src_x, src_y, src_w, src_h,
+                            inv_x + src_x * inv_draw_scale,
+                            inv_y + src_y * inv_draw_scale,
+                            src_w * inv_draw_scale,
+                            src_h * inv_draw_scale);
+        }
     }
 
-    if(crafting_table_mode)
+    if(furnace_mode)
+    {
+        int panel_x = 0, panel_y = 0, panel_w = 0, panel_h = 0;
+        furnaceGuiPanelRect(panel_x, panel_y, panel_w, panel_h);
+        const int src_w = std::min(static_cast<int>(furnace_gui.width), furnace_gui_src_w);
+        const int src_h = std::min(static_cast<int>(furnace_gui.height), furnace_gui_src_h);
+        drawTexture(furnace_gui, *screen,
+                    static_cast<uint16_t>(0), static_cast<uint16_t>(0),
+                    static_cast<uint16_t>(src_w), static_cast<uint16_t>(src_h),
+                    static_cast<uint16_t>(panel_x), static_cast<uint16_t>(panel_y),
+                    static_cast<uint16_t>(panel_w), static_cast<uint16_t>(panel_h));
+    }
+    else if(crafting_table_mode)
     {
         if(TEXTURE *table_tex = craftingTableTexture())
         {
@@ -1063,102 +1405,153 @@ void InventoryTask::render()
     }
 
     const int pitch = inv_draw_pitch;
-    for(int i = 0; i < Inventory::hotbar_slot_count; ++i)
+    if(furnace_mode)
     {
-        const int x = inv_x + hotbar_src_x * inv_draw_scale + i * pitch;
-        const int y = inv_y + hotbar_src_y * inv_draw_scale;
-        drawSlotItem(*screen, i, x, y);
+        for(int s = Inventory::hotbar_slot_count; s < Inventory::slot_count; ++s)
+        {
+            int sx, sy, bw, bh;
+            furnacePlayerSlotBounds(s, sx, sy, bw, bh);
+            drawSlotItem(*screen, s, sx, sy);
+        }
+    }
+    else
+    {
+        for(int i = 0; i < Inventory::hotbar_slot_count; ++i)
+        {
+            const int x = inv_x + hotbar_src_x * inv_draw_scale + i * pitch;
+            const int y = inv_y + hotbar_src_y * inv_draw_scale;
+            drawSlotItem(*screen, i, x, y);
+        }
+
+        for(int row = 0; row < storage_rows; ++row)
+            for(int col = 0; col < storage_cols; ++col)
+            {
+                const int slot = Inventory::hotbar_slot_count + row * storage_cols + col;
+                const int x = inv_x + storage_src_x * inv_draw_scale + col * pitch;
+                const int y = inv_y + storage_src_y * inv_draw_scale + row * pitch;
+                drawSlotItem(*screen, slot, x, y);
+            }
     }
 
-    for(int row = 0; row < storage_rows; ++row)
-        for(int col = 0; col < storage_cols; ++col)
-        {
-            const int slot = Inventory::hotbar_slot_count + row * storage_cols + col;
-            const int x = inv_x + storage_src_x * inv_draw_scale + col * pitch;
-            const int y = inv_y + storage_src_y * inv_draw_scale + row * pitch;
-            drawSlotItem(*screen, slot, x, y);
-        }
-
-    // Draw crafting grid items
-    int craft_draw_x, craft_draw_y, craft_width, craft_height;
-    craftingGridBounds(craft_draw_x, craft_draw_y, craft_width, craft_height);
-    const int craft_cols = activeCraftingCols();
-    const int craft_rows = activeCraftingRows();
-
-    for(int row = 0; row < craft_rows; ++row)
-        for(int col = 0; col < craft_cols; ++col)
-        {
-            const int craft_slot = row * craft_cols + col;
-            const int x0 = craft_draw_x + (col * craft_width) / craft_cols;
-            const int y0 = craft_draw_y + (row * craft_height) / craft_rows;
-            const int x1 = craft_draw_x + ((col + 1) * craft_width) / craft_cols;
-            const int y1 = craft_draw_y + ((row + 1) * craft_height) / craft_rows;
-            const int slot_w = std::max(1, x1 - x0);
-            const int slot_h = std::max(1, y1 - y0);
-            
-            const BLOCK_WDATA block = crafting_input[craft_slot];
-            const unsigned int count = crafting_counts[craft_slot];
-            if(getBLOCK(block) != BLOCK_AIR && count > 0)
-            {
-                if(getBLOCK(block) == BLOCK_ITEM)
-                {
-                    drawItemIcon(block, *screen, x0, y0, std::min(slot_w, slot_h));
-                }
-                else
-                {
-#ifdef _TINSPIRE
-                    const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
-                    drawTexture(*terrain_resized, *screen,
-                                icon_tex.left, icon_tex.top,
-                                icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
-                                x0, y0,
-                                slot_w, slot_h);
-#else
-                    const int icon_w = 24;
-                    const int icon_h = 24;
-                    const int preview_x = x0 + (slot_w - icon_w) / 2;
-                    const int preview_y = y0 + (slot_h - icon_h) / 2;
-                    global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
-#endif
-                }
-                
-                char count_text[12];
-                snprintf(count_text, sizeof(count_text), "%u", count);
-                drawString(count_text, 0xFFFF, *screen, x0 + slot_w - 10, y0 + 2);
-            }
-        }
-
-    // Draw crafting output
-    int output_draw_x, output_draw_y, output_draw_w, output_draw_h;
-    craftingOutputBounds(output_draw_x, output_draw_y, output_draw_w, output_draw_h);
-    
-    if(getBLOCK(crafting_output) != BLOCK_AIR && crafting_output_count > 0)
+    if(furnace_mode)
     {
-        if(getBLOCK(crafting_output) == BLOCK_ITEM)
+        for(int fi = 0; fi < 3; ++fi)
         {
-            drawItemIcon(crafting_output, *screen, output_draw_x, output_draw_y, std::min(output_draw_w, output_draw_h));
-        }
-        else
-        {
+            int x0, y0, slot_w, slot_h;
+            furnaceSlotBounds(fi, x0, y0, slot_w, slot_h);
+            const BLOCK_WDATA block = furnace_slots[fi];
+            const unsigned int count = furnace_counts[fi];
+            if(getBLOCK(block) == BLOCK_AIR || count == 0)
+                continue;
+            if(getBLOCK(block) == BLOCK_ITEM)
+            {
+                drawItemIcon(block, *screen, x0, y0, std::min(slot_w, slot_h));
+            }
+            else
+            {
 #ifdef _TINSPIRE
-            const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(crafting_output).resized;
-            drawTexture(*terrain_resized, *screen,
-                        icon_tex.left, icon_tex.top,
-                        icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
-                        output_draw_x, output_draw_y,
-                        output_draw_w, output_draw_h);
+                const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+                drawTexture(*terrain_resized, *screen,
+                            icon_tex.left, icon_tex.top,
+                            icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                            x0, y0,
+                            slot_w, slot_h);
 #else
-            const int icon_w = 24;
-            const int icon_h = 24;
-            const int preview_x = output_draw_x + (output_draw_w - icon_w) / 2;
-            const int preview_y = output_draw_y + (output_draw_h - icon_h) / 2;
-            global_block_renderer.drawPreview(crafting_output, *screen, preview_x, preview_y);
+                const int icon_w = 24;
+                const int icon_h = 24;
+                const int preview_x = x0 + (slot_w - icon_w) / 2;
+                const int preview_y = y0 + (slot_h - icon_h) / 2;
+                global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
 #endif
+            }
+            char count_text[12];
+            snprintf(count_text, sizeof(count_text), "%u", count);
+            drawString(count_text, 0xFFFF, *screen, x0 + slot_w - 10, y0 + 2);
         }
-        
-        char count_text[12];
-        snprintf(count_text, sizeof(count_text), "%u", crafting_output_count);
-        drawString(count_text, 0xFFFF, *screen, output_draw_x + output_draw_w - 10, output_draw_y + 2);
+    }
+    else
+    {
+        // Draw crafting grid items
+        int craft_draw_x, craft_draw_y, craft_width, craft_height;
+        craftingGridBounds(craft_draw_x, craft_draw_y, craft_width, craft_height);
+        const int craft_cols = activeCraftingCols();
+        const int craft_rows = activeCraftingRows();
+
+        for(int row = 0; row < craft_rows; ++row)
+            for(int col = 0; col < craft_cols; ++col)
+            {
+                const int craft_slot = row * craft_cols + col;
+                const int x0 = craft_draw_x + (col * craft_width) / craft_cols;
+                const int y0 = craft_draw_y + (row * craft_height) / craft_rows;
+                const int x1 = craft_draw_x + ((col + 1) * craft_width) / craft_cols;
+                const int y1 = craft_draw_y + ((row + 1) * craft_height) / craft_rows;
+                const int slot_w = std::max(1, x1 - x0);
+                const int slot_h = std::max(1, y1 - y0);
+
+                const BLOCK_WDATA block = crafting_input[craft_slot];
+                const unsigned int count = crafting_counts[craft_slot];
+                if(getBLOCK(block) != BLOCK_AIR && count > 0)
+                {
+                    if(getBLOCK(block) == BLOCK_ITEM)
+                    {
+                        drawItemIcon(block, *screen, x0, y0, std::min(slot_w, slot_h));
+                    }
+                    else
+                    {
+#ifdef _TINSPIRE
+                        const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(block).resized;
+                        drawTexture(*terrain_resized, *screen,
+                                    icon_tex.left, icon_tex.top,
+                                    icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                                    x0, y0,
+                                    slot_w, slot_h);
+#else
+                        const int icon_w = 24;
+                        const int icon_h = 24;
+                        const int preview_x = x0 + (slot_w - icon_w) / 2;
+                        const int preview_y = y0 + (slot_h - icon_h) / 2;
+                        global_block_renderer.drawPreview(block, *screen, preview_x, preview_y);
+#endif
+                    }
+
+                    char count_text[12];
+                    snprintf(count_text, sizeof(count_text), "%u", count);
+                    drawString(count_text, 0xFFFF, *screen, x0 + slot_w - 10, y0 + 2);
+                }
+            }
+
+        // Draw crafting output
+        int output_draw_x, output_draw_y, output_draw_w, output_draw_h;
+        craftingOutputBounds(output_draw_x, output_draw_y, output_draw_w, output_draw_h);
+
+        if(getBLOCK(crafting_output) != BLOCK_AIR && crafting_output_count > 0)
+        {
+            if(getBLOCK(crafting_output) == BLOCK_ITEM)
+            {
+                drawItemIcon(crafting_output, *screen, output_draw_x, output_draw_y, std::min(output_draw_w, output_draw_h));
+            }
+            else
+            {
+#ifdef _TINSPIRE
+                const TextureAtlasEntry &icon_tex = global_block_renderer.materialTexture(crafting_output).resized;
+                drawTexture(*terrain_resized, *screen,
+                            icon_tex.left, icon_tex.top,
+                            icon_tex.right - icon_tex.left, icon_tex.bottom - icon_tex.top,
+                            output_draw_x, output_draw_y,
+                            output_draw_w, output_draw_h);
+#else
+                const int icon_w = 24;
+                const int icon_h = 24;
+                const int preview_x = output_draw_x + (output_draw_w - icon_w) / 2;
+                const int preview_y = output_draw_y + (output_draw_h - icon_h) / 2;
+                global_block_renderer.drawPreview(crafting_output, *screen, preview_x, preview_y);
+#endif
+            }
+
+            char count_text[12];
+            snprintf(count_text, sizeof(count_text), "%u", crafting_output_count);
+            drawString(count_text, 0xFFFF, *screen, output_draw_x + output_draw_w - 10, output_draw_y + 2);
+        }
     }
 
 #ifndef _TINSPIRE

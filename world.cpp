@@ -156,6 +156,11 @@ bool World::blockAction(const int x, const int y, const int z)
         return false;
 
     const BLOCK_WDATA block = c->getLocalBlock(local_x, local_y, local_z);
+    if(getBLOCK(block) == BLOCK_FURNACE)
+    {
+        inventory_task.openFurnace(x, y, z);
+        return true;
+    }
     if(getBLOCK(block) == BLOCK_CRAFTING_TABLE)
     {
         inventory_task.openCraftingTable();

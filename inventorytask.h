@@ -1,6 +1,10 @@
 #ifndef INVENTORYTASK_H
 #define INVENTORYTASK_H
 
+#include <array>
+#include <map>
+#include <tuple>
+
 #include "task.h"
 #include "terrain.h"
 
@@ -9,6 +13,7 @@ class InventoryTask : public Task
 public:
     void openPlayerInventory();
     void openCraftingTable();
+    void openFurnace(int block_x, int block_y, int block_z);
     virtual void makeCurrent() override;
     virtual void render() override;
     virtual void logic(GLFix dt) override;
@@ -20,6 +25,9 @@ private:
     static constexpr int CRAFTING_SLOT_OFFSET = 36; // After hotbar (9) + storage (27)
     static constexpr int CRAFTING_INPUT_COUNT = 9; // Up to 3x3 grid
     static constexpr int CRAFTING_OUTPUT_SLOT = CRAFTING_SLOT_OFFSET + CRAFTING_INPUT_COUNT;
+    static constexpr int FURNACE_INPUT_SLOT = 46;
+    static constexpr int FURNACE_FUEL_SLOT = 47;
+    static constexpr int FURNACE_OUTPUT_SLOT = 48;
     
     void activate();
     int slotFromMouse(int mouse_x, int mouse_y) const;
@@ -29,6 +37,11 @@ private:
     int activeCraftingRows() const;
     void craftingGridBounds(int &x, int &y, int &w, int &h) const;
     void craftingOutputBounds(int &x, int &y, int &w, int &h) const;
+    int furnaceSlotFromMouse(int mouse_x, int mouse_y) const;
+    void furnaceSlotBounds(int slot_index, int &x, int &y, int &w, int &h) const;
+    /** Player inventory slots 0–35 in vanilla 176×166 furnace GUI space (same as net.minecraft.inventory.ContainerFurnace). */
+    void furnacePlayerSlotBounds(int player_slot, int &x, int &y, int &w, int &h) const;
+    void syncFurnaceStorage();
     void consumeCraftingIngredients();
     void drawSlotItem(TEXTURE &tex, int slot, int x, int y);
     bool isHoldingItem() const;
@@ -52,7 +65,12 @@ private:
     uint16_t nspire_tp_last_x = 0;
     uint16_t nspire_tp_last_y = 0;
     bool crafting_table_mode = false;
-    
+    bool furnace_mode = false;
+    int furnace_bx = 0, furnace_by = 0, furnace_bz = 0;
+    BLOCK_WDATA furnace_slots[3] = {};
+    unsigned int furnace_counts[3] = {};
+    std::map<std::tuple<int, int, int>, std::array<std::pair<BLOCK_WDATA, unsigned int>, 3>> furnace_storage;
+
     // Crafting table
     BLOCK_WDATA crafting_input[CRAFTING_INPUT_COUNT] = {};
     unsigned int crafting_counts[CRAFTING_INPUT_COUNT] = {};
