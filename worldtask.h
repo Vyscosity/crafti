@@ -47,6 +47,14 @@ private:
     static constexpr unsigned int max_hearts = 10;
     unsigned int hearts = max_hearts;
 
+    /** Hunger drumsticks (0 = empty … max_food = full), HUD like MC food bar. */
+    static constexpr unsigned int max_food = 10;
+    unsigned int food = max_food;
+
+    /** XP level and 0..1 progress within current level (GuiIngame XP bar). */
+    unsigned int xp_level = 0;
+    float xp_bar = 0.f;
+
     // Accumulated downward travel since last time we touched ground.
     GLFix fall_distance = 0;
 

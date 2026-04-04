@@ -20,6 +20,7 @@
 
 #include "textures/blockselection.h"
 #include "textures/inventory.h"
+#include "textures/icons.h"
 
 #include "deathtask.h"
 #include "humanentity.h"
@@ -988,13 +989,55 @@ void WorldTask::render()
     crosshairPixel(0, 1);
     crosshairPixel(0, 2);
 
-    // Hearts HUD (placeholder: just show numeric health in the top-right).
-    // Eventually this will become the full Minecraft heart icons.
+    // HUD from textures/gui/icons.png (MCP Gui.field_110324_m) — health, hunger, XP (GuiIngame 1.4.x+ layout).
     {
-        char hearts_text[8];
-        snprintf(hearts_text, sizeof(hearts_text), "%u", hearts);
-        const unsigned int hearts_x = (SCREEN_WIDTH > 20 ? static_cast<unsigned int>(SCREEN_WIDTH - 20) : 0);
-        drawString(hearts_text, 0xFFFF, *screen, hearts_x, 5);
+        constexpr int hotbar_src_width = 22 * 9;
+        const int hud_scale = SCREEN_WIDTH >= hotbar_src_width * 2 ? 2 : 1;
+        constexpr int sp = 9;
+        const int row_y = SCREEN_HEIGHT - 39 * hud_scale;
+        const int hud_left = SCREEN_WIDTH / 2 - 91 * hud_scale;
+        const int hud_right = SCREEN_WIDTH / 2 + 91 * hud_scale;
+        const int icon_s = sp * hud_scale;
+
+        for (unsigned int i = 0; i < max_hearts; ++i)
+        {
+            const int hx = hud_left + static_cast<int>(i) * 8 * hud_scale;
+            drawTexture(icons, *screen, 16, 0, sp, sp, hx, row_y, icon_s, icon_s);
+            if (i < hearts)
+                drawTexture(icons, *screen, 52, 0, sp, sp, hx, row_y, icon_s, icon_s);
+        }
+
+        for (unsigned int i = 0; i < max_food; ++i)
+        {
+            const int fx = hud_right - static_cast<int>(i) * 8 * hud_scale - sp * hud_scale;
+            drawTexture(icons, *screen, 16, 27, sp, sp, fx, row_y, icon_s, icon_s);
+            if (i < food)
+                drawTexture(icons, *screen, 52, 27, sp, sp, fx, row_y, icon_s, icon_s);
+        }
+
+        if (xp_level > 0 || xp_bar > 0.001f)
+        {
+            const int bar_x = SCREEN_WIDTH / 2 - 91 * hud_scale;
+            const int bar_y = SCREEN_HEIGHT - 29 * hud_scale;
+            constexpr int bar_w = 182;
+            constexpr int bar_h = 5;
+            drawTexture(icons, *screen, 0, 64, bar_w, bar_h,
+                        bar_x, bar_y, bar_w * hud_scale, bar_h * hud_scale);
+            int fill = static_cast<int>(xp_bar * 183.0f);
+            if (fill > bar_w)
+                fill = bar_w;
+            if (fill > 0)
+                drawTexture(icons, *screen, 0, 69, fill, bar_h,
+                            bar_x, bar_y, fill * hud_scale, bar_h * hud_scale);
+        }
+
+        if (xp_level > 0)
+        {
+            char lvl[12];
+            snprintf(lvl, sizeof(lvl), "%u", xp_level);
+            drawStringCenter(lvl, 0x87E0, *screen, SCREEN_WIDTH / 2,
+                             static_cast<unsigned int>(SCREEN_HEIGHT - 35 * hud_scale));
+        }
     }
 
     //Don't draw the inventory when drawing the background for BlockListTask
@@ -1069,6 +1112,9 @@ void WorldTask::resetWorld()
     block_list_task.current_selection = 1;
 
     hearts = max_hearts;
+    food = max_food;
+    xp_level = 0;
+    xp_bar = 0.f;
     fall_distance = 0;
     safe_spawn_pending = true;
 
@@ -1087,6 +1133,9 @@ void WorldTask::respawnPlayer()
 {
     // Respawn without wiping the world.
     hearts = max_hearts;
+    food = max_food;
+    xp_level = 0;
+    xp_bar = 0.f;
     vy = 0;
     fall_distance = 0;
     safe_spawn_pending = true;

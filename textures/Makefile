@@ -1,6 +1,10 @@
-OBJS := font_bmp.h font_dat.h inventory.h inventory2.h crafting_table.h furnace.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h items_texture.h steve.h chicken.h creeper.h
+OBJS := font_bmp.h font_dat.h inventory.h inventory2.h crafting_table.h furnace.h inv_selection.h loading.h loadingtext.h menu.h selection.h terrain.h terrain2.h blockselection.h part_fire.h items_texture.h steve.h chicken.h creeper.h icons.h
 
 all: $(OBJS)
+
+# Vanilla HUD atlas (resize HD to 256² in script so MCP UVs apply). Prefer: python3 gen_icons_h.py
+icons.h: icons.png gen_icons_h.py
+	python3 gen_icons_h.py
 
 %.h: %.bmp
 	ConvertImg --format=ngl $^ $@
