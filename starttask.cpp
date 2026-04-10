@@ -2,6 +2,7 @@
 
 #include "font.h"
 #include "worldtask.h"
+#include "graphtask.h"
 #include "world.h"
 #include "blockrenderer.h"
 #include "terrain.h"
@@ -124,7 +125,7 @@ void StartTask::render()
     // Subtitle
     drawStringCenter("Select world type", 0xFFFF, *screen, SCREEN_WIDTH / 2, 28);
 
-    const char *items[START_ITEM_MAX] = { "Continue Saved World", "New Flat World", "New Terrain World", "Exit" };
+    const char *items[START_ITEM_MAX] = { "Continue Saved World", "New Flat World", "New Terrain World", "Graphing Mode", "Exit" };
 
     int menu_height = START_ITEM_MAX * 24 - 4;
     int start_y = (SCREEN_HEIGHT / 2) - menu_height / 2;
@@ -192,6 +193,9 @@ void StartTask::logic(GLFix /*dt*/)
             world.setWorldType(World::WorldType::Terrain);
             world_task.resetWorld();
             world_task.makeCurrent();
+            break;
+        case NEW_GRAPH:
+            graph_task.makeCurrent();
             break;
         case EXIT:
             running = false;

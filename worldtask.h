@@ -80,6 +80,9 @@ private:
     GLFix sim_tick_accum = 0;
     /** Fractional mining progress toward the next integer tick. */
     GLFix mining_tick_accum = 0;
+
+    /** Accumulator for graph line-by-line reveal timing. */
+    GLFix graph_line_tick_accum = 0;
 };
 
 extern WorldTask world_task;

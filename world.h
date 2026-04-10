@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <list>
+#include <string>
 #include <unordered_map>
 #include <tuple>
 #include <functional>
@@ -32,6 +33,19 @@ struct BLOCK_CHANGE {
 class World
 {
 public:
+    enum class GraphMode {
+        Real,
+        Complex,
+        Implicit
+    };
+
+    struct GraphPoint {
+        int x;
+        int y;
+        int z;
+        BLOCK_WDATA block;
+    };
+
     World();
     ~World();
     void generateSeed();
@@ -53,11 +67,32 @@ public:
 
     enum class WorldType {
         Terrain,
-        Flat
+        Flat,
+        Graph
     };
 
     void setWorldType(WorldType type) { world_type = type; }
     WorldType worldType() const { return world_type; }
+
+    bool setGraphExpression(const char *expression);
+    const char *graphExpression() const { return graph_expression.c_str(); }
+    const std::vector<GraphPoint> &graphPoints() const { return graph_points; }
+    int graphRange() const { return graph_range; }
+    int graphOriginY() const { return graph_origin_y; }
+    int graphZoomPercent() const { return graph_zoom_percent; }
+    bool setGraphZoomPercent(int zoom_percent);
+    int graphFillDepth() const { return graph_fill_depth; }
+    bool setGraphFillDepth(int fill_depth);
+    bool graphUnbounded() const { return graph_unbounded; }
+    void setGraphUnbounded(bool enabled);
+    GraphMode graphMode() const { return graph_mode; }
+    bool isGraphLineSweepEnabled() const { return graph_line_sweep_enabled; }
+    int graphRevealX() const { return graph_reveal_x; }
+    void startGraphLineSweep();
+    void stopGraphLineSweep();
+    bool stepGraphLineSweep();
+
+    bool graphPointsAt(int x, int z, const std::vector<GraphPoint> *&out);
 
     Chunk *findChunk(int x, int y, int z) const;
     void spawnDestructionParticles(int x, int y, int z);
@@ -91,6 +126,23 @@ private:
     std::vector<BLOCK_CHANGE> pending_block_changes;
 
     WorldType world_type = WorldType::Terrain;
+
+    std::string graph_expression = "sin(x)";
+    std::vector<GraphPoint> graph_points;
+    std::unordered_map<std::tuple<int,int,int>, std::vector<GraphPoint>> graph_points_by_xz;
+    int graph_range = 30;
+    int graph_origin_y = (HEIGHT * Chunk::SIZE) / 2;
+    int graph_zoom_percent = 800;
+    int graph_fill_depth = 6;
+    bool graph_unbounded = false;
+    bool graph_line_sweep_enabled = false;
+    int graph_reveal_x = graph_range;
+    GraphMode graph_mode = GraphMode::Real;
+
+    void rebuildGraphPoints();
+    void sampleGraphColumn(int gx, int gz, std::vector<GraphPoint> &out) const;
+    bool setComplexGraphExpression(const std::string &normalized);
+    bool setImplicitGraphExpression(const std::string &normalized);
 };
 
 extern World world;

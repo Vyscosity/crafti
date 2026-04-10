@@ -10,6 +10,7 @@ public:
         CONTINUE = 0,
         NEW_FLAT,
         NEW_TERRAIN,
+        NEW_GRAPH,
         EXIT,
         START_ITEM_MAX
     };

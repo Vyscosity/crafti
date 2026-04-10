@@ -30,6 +30,18 @@ static constexpr bool inBounds(int x, int y, int z)
     return x >= 0 && y >= 0 && z >= 0 && x < Chunk::SIZE && y < Chunk::SIZE && z < Chunk::SIZE;
 }
 
+static constexpr int localFromGlobal(const int global)
+{
+    static_assert(Chunk::SIZE == 8, "Update the bit operations accordingly!");
+    return global & 0b111;
+}
+
+static constexpr int chunkFromGlobal(const int global)
+{
+    static_assert(Chunk::SIZE == 8, "Update the bit operations accordingly!");
+    return global >> 3;
+}
+
 unsigned int Chunk::getPosition(unsigned int x, unsigned int y, unsigned int z)
 {
     assert (x <= Chunk::SIZE && y <= Chunk::SIZE && z <= Chunk::SIZE);
@@ -539,6 +551,51 @@ void Chunk::generate()
         }
 
         // Leave everything else as air and skip terrain generation.
+        debug("Done!\n");
+        return;
+    }
+
+    if(world.worldType() == World::WorldType::Graph)
+    {
+        const int range = world.graphRange();
+        const int reveal_x = world.graphRevealX();
+        const int fill_depth = world.graphFillDepth();
+        const bool unbounded = world.graphUnbounded();
+        const bool do_reveal = world.isGraphLineSweepEnabled();
+
+        // Terrain-like sampling, but only place the top surface as green wool.
+        for(int lx = 0; lx < SIZE; ++lx)
+        {
+            const int gx = this->x * SIZE + lx;
+            if((!unbounded && (gx < -range || gx > range)) || (do_reveal && gx > reveal_x))
+                continue;
+
+            for(int lz = 0; lz < SIZE; ++lz)
+            {
+                const int gz = this->z * SIZE + lz;
+                if(!unbounded && (gz < -range || gz > range))
+                    continue;
+
+                const std::vector<World::GraphPoint> *column_points = nullptr;
+                if(!world.graphPointsAt(gx, gz, column_points) || column_points == nullptr)
+                    continue;
+
+                for(const World::GraphPoint &p : *column_points)
+                {
+                    const int surface_y = p.y;
+                    const BLOCK_WDATA top_block = p.block;
+                    for(int k = 0; k < fill_depth; ++k)
+                    {
+                        const int yk = surface_y - k;
+                        if(yk < 0)
+                            break;
+                        if(yk / SIZE == this->y)
+                            blocks[lx][yk % SIZE][lz] = top_block;
+                    }
+                }
+            }
+        }
+
         debug("Done!\n");
         return;
     }

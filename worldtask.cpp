@@ -15,6 +15,7 @@
 #include "font.h"
 #include "inventory.h"
 #include "inventorytask.h"
+#include "graphtask.h"
 
 #include "textures/items.h"
 
@@ -29,6 +30,16 @@
 #include "grounddrops.h"
 
 WorldTask world_task;
+
+extern unsigned char font_dat[];
+
+static unsigned int measureTextWidth(const char *str)
+{
+    unsigned int w = 0;
+    while(*str)
+        w += font_dat[17 + static_cast<unsigned char>(*str++)];
+    return w;
+}
 
 constexpr GLFix  WorldTask::player_width,  WorldTask::player_height,  WorldTask::eye_pos;
 
@@ -272,6 +283,22 @@ GLFix WorldTask::speed()
 
 void WorldTask::logic(GLFix dt)
 {
+    const bool graph_mode = world.worldType() == World::WorldType::Graph;
+#ifndef _TINSPIRE
+    const Uint8 *desktop_keys = SDL_GetKeyState(nullptr);
+    const bool desktop_t_held = desktop_keys[SDLK_t] != 0;
+    const bool desktop_g_held = desktop_keys[SDLK_g] != 0;
+    const bool desktop_j_held = desktop_keys[SDLK_j] != 0;
+    const bool desktop_x_held = desktop_keys[SDLK_x] != 0;
+    const bool desktop_z_held = desktop_keys[SDLK_z] != 0;
+#else
+    const bool desktop_t_held = false;
+    const bool desktop_g_held = false;
+    const bool desktop_j_held = false;
+    const bool desktop_x_held = false;
+    const bool desktop_z_held = false;
+#endif
+
     GLFix dx = 0, dz = 0;
 
     if(keyPressed(KEY_NSPIRE_8)) //Forward
@@ -311,7 +338,28 @@ void WorldTask::logic(GLFix dt)
     dx *= dt;
     dz *= dt;
 
-    if(!world.intersect(aabb))
+    if(graph_mode)
+    {
+        x += dx;
+        z += dz;
+
+        GLFix dy = 0;
+        if(keyPressed(KEY_NSPIRE_5))
+            dy += speed() * dt;
+        if(keyPressed(KEY_NSPIRE_CTRL))
+            dy -= speed() * dt;
+
+        y += dy;
+        if(y < GLFix(2 * BLOCK_SIZE))
+            y = GLFix(2 * BLOCK_SIZE);
+
+        vy = 0;
+        can_jump = true;
+        in_water = false;
+        fall_distance = 0;
+        safe_spawn_pending = false;
+    }
+    else if(!world.intersect(aabb))
     {
         AABB aabb_moved = aabb;
         aabb_moved.low_x += dx;
@@ -399,7 +447,7 @@ void WorldTask::logic(GLFix dt)
             can_jump = true;
     }
 
-    if(keyPressed(KEY_NSPIRE_5) && can_jump) //Jump
+    if(!graph_mode && keyPressed(KEY_NSPIRE_5) && can_jump) //Jump
     {
         vy = 50;
         can_jump = false;
@@ -536,12 +584,8 @@ void WorldTask::logic(GLFix dt)
 
     if(key_held_down)
     {
-        bool desktop_t_held = false;
-#ifndef _TINSPIRE
-        const Uint8 *keys = SDL_GetKeyState(nullptr);
-        desktop_t_held = keys[SDLK_t] != 0;
-#endif
         key_held_down = keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_7) || keyPressed(KEY_NSPIRE_1) || keyPressed(KEY_NSPIRE_3) || keyPressed(KEY_NSPIRE_PERIOD) || keyPressed(KEY_NSPIRE_MINUS) || keyPressed(KEY_NSPIRE_PLUS) || keyPressed(KEY_NSPIRE_MENU) || keyPressed(KEY_NSPIRE_A) || desktop_t_held;
+        key_held_down = key_held_down || desktop_g_held || desktop_j_held || desktop_x_held || desktop_z_held;
     }
 
     else if(keyPressed(KEY_NSPIRE_ESC) || keyPressed(KEY_NSPIRE_MENU))
@@ -775,6 +819,36 @@ void WorldTask::logic(GLFix dt)
 
         key_held_down = true;
     }
+    else if(graph_mode && desktop_z_held)
+    {
+        const int old_zoom = world.graphZoomPercent();
+        if(world.setGraphZoomPercent(old_zoom - 10))
+        {
+            world.clear();
+            char msg[32];
+            snprintf(msg, sizeof(msg), "Graph zoom: %d%%", world.graphZoomPercent());
+            setMessage(msg);
+        }
+        else
+            setMessage("Graph zoom min: 20%");
+
+        key_held_down = true;
+    }
+    else if(graph_mode && desktop_x_held)
+    {
+        const int old_zoom = world.graphZoomPercent();
+        if(world.setGraphZoomPercent(old_zoom + 10))
+        {
+            world.clear();
+            char msg[32];
+            snprintf(msg, sizeof(msg), "Graph zoom: %d%%", world.graphZoomPercent());
+            setMessage(msg);
+        }
+        else
+            setMessage("Graph zoom max: 800%");
+
+        key_held_down = true;
+    }
     else if(keyPressed(KEY_NSPIRE_MINUS)) //Decrease max view distance
     {
         int fov = world.fieldOfView() - 1;
@@ -789,6 +863,18 @@ void WorldTask::logic(GLFix dt)
         key_held_down = true;
     }
     // Handled above with ESC
+    else if(graph_mode && desktop_g_held)
+    {
+        graph_task.makeCurrent();
+        key_held_down = true;
+    }
+    else if(graph_mode && desktop_j_held)
+    {
+        world.setGraphUnbounded(!world.graphUnbounded());
+        world.clear();
+        setMessage(world.graphUnbounded() ? "Graph bounds: infinite" : "Graph bounds: [-30,30]");
+        key_held_down = true;
+    }
     else if(keyPressed(KEY_NSPIRE_A))
     {
         inventory_task.makeCurrent();
@@ -809,7 +895,7 @@ void WorldTask::logic(GLFix dt)
     // Discrete tick-based entities: advance ~dt worth of old 1-tick steps (carry fractional remainder).
     sim_tick_accum += dt;
     unsigned sim_steps = 0;
-    while(sim_tick_accum >= GLFix(1) && sim_steps < 8)
+    while(!graph_mode && sim_tick_accum >= GLFix(1) && sim_steps < 8)
     {
         sim_tick_accum -= GLFix(1);
         inventory_task.tickFurnaces(world);
@@ -823,6 +909,7 @@ void WorldTask::logic(GLFix dt)
 
 void WorldTask::render()
 {
+    const bool graph_mode = world.worldType() == World::WorldType::Graph;
     aabb = {x - player_width/2, y, z - player_width/2, x + player_width/2, y + player_height, z + player_width/2};
     //printf("X: %f Y: %f Z: %f XR: %d YR: %d\n", x.toFloat(), y.toFloat(), z.toFloat(), xr.toInt(), yr.toInt());
 
@@ -841,11 +928,14 @@ void WorldTask::render()
 
     world.render();
 
-    // Render human entities (binds steve_tex internally)
-    renderHumanEntities();
-    renderChickenEntities();
-    renderCreeperEntities();
-    renderGroundDrops();
+    // Render entities only in normal worlds.
+    if(!graph_mode)
+    {
+        renderHumanEntities();
+        renderChickenEntities();
+        renderCreeperEntities();
+        renderGroundDrops();
+    }
     // Re-bind terrain texture for the rest of the world rendering
     glBindTexture(terrain_current);
 
@@ -1081,8 +1171,68 @@ void WorldTask::render()
 
     if(message_timeout > 0)
     {
-        drawString(message, 0xFFFF, *screen, 2, 5);
+        const int message_y = graph_mode ? static_cast<int>(fontHeight()) + 7 : 5;
+        drawString(message, 0xFFFF, *screen, 2, message_y);
         --message_timeout;
+    }
+
+    if(graph_mode)
+    {
+        char bounds_msg[64];
+        const int zoom = world.graphZoomPercent();
+        const int range = world.graphRange();
+        if(world.graphUnbounded())
+            snprintf(bounds_msg, sizeof(bounds_msg), "Graph zoom:%d%% n:%d x,y:[-inf,+inf]", zoom, world.graphFillDepth());
+        else
+        {
+            const int bound_times_100 = (range * 10000) / zoom;
+            const int bound_int = bound_times_100 / 100;
+            const int bound_frac = bound_times_100 % 100;
+            snprintf(bounds_msg, sizeof(bounds_msg), "Graph zoom:%d%% n:%d x,y:[-%d.%02d,%d.%02d]",
+                     zoom, world.graphFillDepth(), bound_int, bound_frac, bound_int, bound_frac);
+        }
+        drawString(bounds_msg, 0xFFFF, *screen, 2, 5);
+
+        char expr_msg[72];
+        snprintf(expr_msg, sizeof(expr_msg), "z=%s", world.graphExpression());
+        const unsigned int expr_w = measureTextWidth(expr_msg);
+        const int expr_x = std::max(2, static_cast<int>(SCREEN_WIDTH - expr_w - 2));
+        drawString(expr_msg, 0xFFFF, *screen, expr_x, 5);
+    }
+
+    if(selection_side != AABB::NONE)
+    {
+        char pos_msg[64];
+        const int bx = selection_pos.x.toInteger<int>();
+        const int by = selection_pos.y.toInteger<int>();
+        const int bz = selection_pos.z.toInteger<int>();
+
+        if(graph_mode && world.graphMode() == World::GraphMode::Complex)
+        {
+            const int zoom = world.graphZoomPercent();
+            const int rx100 = (bx * 10000) / zoom;
+            const int iz100 = (bz * 10000) / zoom;
+
+            const int rx_sign = rx100 < 0 ? -1 : 1;
+            const int iz_sign = iz100 < 0 ? -1 : 1;
+            const int rx_abs = rx100 * rx_sign;
+            const int iz_abs = iz100 * iz_sign;
+
+            snprintf(pos_msg, sizeof(pos_msg), "z=%s%d.%02d%s%d.%02di",
+                     rx_sign < 0 ? "-" : "",
+                     rx_abs / 100,
+                     rx_abs % 100,
+                     iz_sign < 0 ? "-" : "+",
+                     iz_abs / 100,
+                     iz_abs % 100);
+        }
+        else
+        {
+            snprintf(pos_msg, sizeof(pos_msg), "Block (%d,%d,%d)", bx, by, bz);
+        }
+
+        const int y_pos = graph_mode ? static_cast<int>(fontHeight()) + 7 : 5;
+        drawString(pos_msg, 0xFFFF, *screen, 2, y_pos);
     }
 
     #ifdef FPS_COUNTER
@@ -1099,12 +1249,21 @@ void WorldTask::render()
 void WorldTask::resetWorld()
 {
     x = z = 0;
-    y = World::HEIGHT * Chunk::SIZE * BLOCK_SIZE;
+    y = world.worldType() == World::WorldType::Graph ? GLFix((world.graphOriginY() + 8) * BLOCK_SIZE) : GLFix(World::HEIGHT * Chunk::SIZE * BLOCK_SIZE);
     xr = yr = 0;
     world.generateSeed();
-    initHumanEntities();
-    initChickenEntities();
-    initCreeperEntities();
+    if(world.worldType() != World::WorldType::Graph)
+    {
+        initHumanEntities();
+        initChickenEntities();
+        initCreeperEntities();
+    }
+    else
+    {
+        human_entities.clear();
+        chicken_entities.clear();
+        creeper_entities.clear();
+    }
     clearGroundDrops();
     world.clear();
     current_inventory.reset();
@@ -1116,7 +1275,7 @@ void WorldTask::resetWorld()
     xp_level = 0;
     xp_bar = 0.f;
     fall_distance = 0;
-    safe_spawn_pending = true;
+    safe_spawn_pending = world.worldType() != World::WorldType::Graph;
 
     vy = 0;
     can_jump = false;
@@ -1126,6 +1285,7 @@ void WorldTask::resetWorld()
     mining_progress = 0;
     mining_tick_accum = 0;
     sim_tick_accum = 0;
+    graph_line_tick_accum = 0;
     message_timeout = 0;
 }
 
@@ -1138,10 +1298,10 @@ void WorldTask::respawnPlayer()
     xp_bar = 0.f;
     vy = 0;
     fall_distance = 0;
-    safe_spawn_pending = true;
+    safe_spawn_pending = world.worldType() != World::WorldType::Graph;
 
     // Place above the world so the down-ray has something to hit.
-    y = World::HEIGHT * Chunk::SIZE * BLOCK_SIZE;
+    y = world.worldType() == World::WorldType::Graph ? GLFix((world.graphOriginY() + 8) * BLOCK_SIZE) : GLFix(World::HEIGHT * Chunk::SIZE * BLOCK_SIZE);
     in_water = false;
     can_jump = false;
     message_timeout = 0;
