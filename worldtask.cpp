@@ -278,6 +278,9 @@ GLFix WorldTask::speed()
     if(keyPressed(KEY_NSPIRE_SHIFT)) // Sneak
         return base / 2;
 
+    if(speed_multiplier_held) // 10x speed  
+        return base * 10;
+
     return base;
 }
 
@@ -291,12 +294,15 @@ void WorldTask::logic(GLFix dt)
     const bool desktop_j_held = desktop_keys[SDLK_j] != 0;
     const bool desktop_x_held = desktop_keys[SDLK_x] != 0;
     const bool desktop_z_held = desktop_keys[SDLK_z] != 0;
+    const bool desktop_v_held = desktop_keys[SDLK_v] != 0;
+    speed_multiplier_held = desktop_v_held;
 #else
     const bool desktop_t_held = false;
     const bool desktop_g_held = false;
     const bool desktop_j_held = false;
     const bool desktop_x_held = false;
     const bool desktop_z_held = false;
+    speed_multiplier_held = false;
 #endif
 
     GLFix dx = 0, dz = 0;

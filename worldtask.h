@@ -42,6 +42,7 @@ private:
     int tp_last_x = 0, tp_last_y = 0;
     GLFix vy = 0; //Y-Velocity for gravity and jumps
     bool in_water = false;
+    bool speed_multiplier_held = false; // V key for 10x speed
 
     // --- Survival / combat (Minecraft-ish) ---
     static constexpr unsigned int max_hearts = 10;
