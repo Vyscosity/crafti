@@ -588,6 +588,12 @@ bool World::setGraphZoomPercent(int zoom_percent)
 
     graph_zoom_percent = zoom_percent;
     rebuildGraphPoints();
+    
+    // Force chunk reload by invalidating current position tracking
+    cen_x = -999999;
+    cen_y = -999999;
+    cen_z = -999999;
+    
     return true;
 }
 
@@ -597,6 +603,12 @@ bool World::setGraphFillDepth(int fill_depth)
         return false;
 
     graph_fill_depth = fill_depth;
+    
+    // Force chunk reload since fill depth affects block generation
+    cen_x = -999999;
+    cen_y = -999999;
+    cen_z = -999999;
+    
     return true;
 }
 
