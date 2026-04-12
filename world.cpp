@@ -505,11 +505,11 @@ static bool evaluateImplicitPreset(const std::string &expr, double x, double z, 
         // x^2 + y^2 + z^2 = r^2
         constexpr double r = 2.5;
         const double inner = r * r - x * x - z * z;
-        if(inner < 0.0)
+        if(inner < -0.5)  // allow slight boundary overshoot for discrete grid coverage
             return false;
-        const double y = std::sqrt(inner);
+        const double y = std::sqrt(std::max(0.0, inner));  // clamp to avoid NaN
         ys.push_back(y);
-        if(y > 1e-8)
+        if(y > 1e-10)  // reduced threshold to catch smaller values
             ys.push_back(-y);
         return true;
     }
@@ -519,13 +519,13 @@ static bool evaluateImplicitPreset(const std::string &expr, double x, double z, 
         // (sqrt(x^2+z^2)-R)^2 + y^2 = r^2
         constexpr double R = 2.0;
         constexpr double r = 0.8;
+        constexpr double edge_tolerance = 1.2;  // larger tolerance for diagonal edges
         const double radial = std::sqrt(x * x + z * z);
         const double inner = r * r - (radial - R) * (radial - R);
-        if(inner < 0.0)
+        if(inner < -0.3)  // allow slight boundary overshoot for discrete grid coverage
             return false;
-        const double y = std::sqrt(inner);
-        ys.push_back(y);
-        if(y > 1e-8)
+        const double y = std::sqrt(std::max(0.0, inner));  // clamp to avoid NaN
+        if(y > 1e-10)  // reduced threshold to catch smaller values
             ys.push_back(-y);
         return true;
     }
